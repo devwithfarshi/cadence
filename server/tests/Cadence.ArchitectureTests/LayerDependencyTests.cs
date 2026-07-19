@@ -15,6 +15,7 @@ namespace Cadence.ArchitectureTests;
 public class LayerDependencyTests
 {
     private static readonly Assembly Domain = typeof(Cadence.Domain.Common.Entity).Assembly;
+    private static readonly Assembly Application = typeof(Cadence.Application.DependencyInjection).Assembly;
 
     private const string DomainNamespace = "Cadence.Domain";
     private const string ApplicationNamespace = "Cadence.Application";
@@ -45,6 +46,50 @@ public class LayerDependencyTests
             .GetResult();
 
         result.FailingTypeNames.ShouldBeNull();
+    }
+
+    [Fact]
+    public void Application_DoesNotDependOnInfrastructureOrApi()
+    {
+        // Application declares ports; Infrastructure supplies adapters. The moment Application can
+        // see Infrastructure, someone will reach for a concrete adapter and the inversion is gone.
+        var result = Types.InAssembly(Application)
+            .ShouldNot()
+            .HaveDependencyOnAny(InfrastructureNamespace, ApiNamespace)
+            .GetResult();
+
+        result.FailingTypeNames.ShouldBeNull();
+    }
+
+    [Fact]
+    public void Application_DoesNotDependOnAspNetOrEntityFrameworkProviders()
+    {
+        // Handlers take ICurrentUser, not HttpContext, which is what lets a background job run the
+        // same handler with a system principal. Npgsql in Application would likewise pin the use
+        // cases to one database.
+        var result = Types.InAssembly(Application)
+            .ShouldNot()
+            .HaveDependencyOnAny("Microsoft.AspNetCore", "Npgsql", "StackExchange.Redis", "Hangfire")
+            .GetResult();
+
+        result.FailingTypeNames.ShouldBeNull();
+    }
+
+    [Fact]
+    public void PortsAreInterfaces_NotConcreteClasses()
+    {
+        // A port that is a class cannot be substituted, which defeats the point of declaring it.
+        var offenders = Types.InAssembly(Application)
+            .That()
+            .ResideInNamespace($"{ApplicationNamespace}.Common.Abstractions")
+            .And()
+            .HaveNameStartingWith("I")
+            .GetTypes()
+            .Where(type => !type.IsInterface)
+            .Select(type => type.Name)
+            .ToList();
+
+        offenders.ShouldBeEmpty();
     }
 
     [Fact]
