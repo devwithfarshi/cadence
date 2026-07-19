@@ -1,0 +1,265 @@
+"use client";
+
+import { Command } from "cmdk";
+import {
+  CheckSquare,
+  FileText,
+  Library,
+  Moon,
+  PanelLeft,
+  Plus,
+  Search,
+  Sun,
+  User,
+  Video,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Dialog as DialogPrimitive } from "radix-ui";
+import { useCallback, useEffect, useState } from "react";
+import { usePreferences } from "@/components/providers/preferences-provider";
+import { useToast } from "@/components/ui/toast";
+import { globalSearch, type SearchResult } from "@/lib/api/workspace";
+import { useDebounced } from "@/lib/hooks/use-async";
+import { ALL_NAV_ITEMS } from "@/lib/navigation";
+
+const RESULT_ICONS = {
+  meeting: Video,
+  task: CheckSquare,
+  document: FileText,
+  knowledge: Library,
+  person: User,
+} as const;
+
+export function CommandPalette({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const router = useRouter();
+  const { preferences, update, resolvedTheme } = usePreferences();
+  const { toast } = useToast();
+
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const debouncedQuery = useDebounced(query, 180);
+
+  // Search records live in localStorage, so this queries on every keystroke
+  // pause rather than filtering a preloaded list.
+  useEffect(() => {
+    if (!open) return;
+
+    let cancelled = false;
+    if (!debouncedQuery.trim()) {
+      setResults([]);
+      return;
+    }
+
+    globalSearch(debouncedQuery, 6)
+      .then((found) => {
+        if (!cancelled) setResults(found);
+      })
+      .catch(() => {
+        if (!cancelled) setResults([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedQuery, open]);
+
+  // Reset between openings so the palette never reopens mid-search.
+  useEffect(() => {
+    if (!open) {
+      setQuery("");
+      setResults([]);
+    }
+  }, [open]);
+
+  const run = useCallback(
+    (action: () => void) => {
+      onOpenChange(false);
+      action();
+    },
+    [onOpenChange],
+  );
+
+  return (
+    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="anim-overlay fixed inset-0 z-50 bg-overlay" />
+        <DialogPrimitive.Content
+          className="anim-dialog fixed left-1/2 top-[15%] z-50 w-[calc(100vw-2rem)] max-w-xl -translate-x-1/2 overflow-hidden rounded-surface border border-border bg-surface shadow-lg focus:outline-none"
+          aria-label="Command palette"
+        >
+          <DialogPrimitive.Title className="sr-only">
+            Search and commands
+          </DialogPrimitive.Title>
+          <DialogPrimitive.Description className="sr-only">
+            Search meetings, documents and people, or run a command.
+          </DialogPrimitive.Description>
+
+          <Command
+            // Results are already ranked by the search service, so cmdk's own
+            // fuzzy scoring would only fight it.
+            shouldFilter={false}
+            loop
+            className="flex flex-col"
+          >
+            <div className="flex items-center gap-2.5 border-b border-border px-3.5">
+              <Search className="size-4 shrink-0 text-subtle" aria-hidden />
+              <Command.Input
+                value={query}
+                onValueChange={setQuery}
+                placeholder="Search meetings, tasks, documents…"
+                className="h-12 w-full bg-transparent text-body text-foreground placeholder:text-subtle focus:outline-none"
+              />
+              <kbd className="hidden shrink-0 rounded border border-border px-1.5 py-0.5 text-overline text-subtle sm:block">
+                ESC
+              </kbd>
+            </div>
+
+            <Command.List className="max-h-80 overflow-y-auto scrollbar-thin p-2">
+              <Command.Empty className="px-2 py-8 text-center text-caption text-muted">
+                {query.trim()
+                  ? `No results for “${query}”`
+                  : "Type to search, or pick a command below."}
+              </Command.Empty>
+
+              {results.length > 0 ? (
+                <Command.Group
+                  heading="Results"
+                  className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:text-overline [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:text-subtle"
+                >
+                  {results.map((result) => {
+                    const Icon = RESULT_ICONS[result.kind];
+                    return (
+                      <Command.Item
+                        key={`${result.kind}-${result.id}`}
+                        value={`${result.kind}-${result.id}`}
+                        onSelect={() => run(() => router.push(result.href))}
+                        className="flex cursor-pointer items-center gap-2.5 rounded-control px-2 py-2 text-body text-foreground data-[selected=true]:bg-surface-raised"
+                      >
+                        <Icon
+                          className="size-4 shrink-0 text-subtle"
+                          aria-hidden
+                        />
+                        <span className="min-w-0 flex-1 truncate">
+                          {result.title}
+                        </span>
+                        <span className="shrink-0 text-label text-subtle">
+                          {result.subtitle}
+                        </span>
+                      </Command.Item>
+                    );
+                  })}
+                </Command.Group>
+              ) : null}
+
+              <Command.Group
+                heading="Go to"
+                className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:text-overline [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:text-subtle"
+              >
+                {ALL_NAV_ITEMS.filter((item) =>
+                  item.label.toLowerCase().includes(query.trim().toLowerCase()),
+                ).map((item) => (
+                  <Command.Item
+                    key={item.href}
+                    value={`nav-${item.href}`}
+                    onSelect={() => run(() => router.push(item.href))}
+                    className="flex cursor-pointer items-center gap-2.5 rounded-control px-2 py-2 text-body text-foreground data-[selected=true]:bg-surface-raised"
+                  >
+                    <item.icon
+                      className="size-4 shrink-0 text-subtle"
+                      aria-hidden
+                    />
+                    <span className="flex-1 truncate">{item.label}</span>
+                    {item.upcoming ? (
+                      <span className="text-overline uppercase text-subtle">
+                        Soon
+                      </span>
+                    ) : null}
+                  </Command.Item>
+                ))}
+              </Command.Group>
+
+              <Command.Group
+                heading="Actions"
+                className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:text-overline [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:text-subtle"
+              >
+                <Command.Item
+                  value="action-new-meeting"
+                  onSelect={() => run(() => router.push("/meetings?new=1"))}
+                  className="flex cursor-pointer items-center gap-2.5 rounded-control px-2 py-2 text-body text-foreground data-[selected=true]:bg-surface-raised"
+                >
+                  <Plus className="size-4 shrink-0 text-subtle" aria-hidden />
+                  Schedule a new meeting
+                </Command.Item>
+
+                <Command.Item
+                  value="action-toggle-theme"
+                  onSelect={() =>
+                    run(() => {
+                      const next = resolvedTheme === "dark" ? "light" : "dark";
+                      update({ theme: next });
+                      toast({
+                        tone: "info",
+                        title: `Switched to ${next} theme`,
+                      });
+                    })
+                  }
+                  className="flex cursor-pointer items-center gap-2.5 rounded-control px-2 py-2 text-body text-foreground data-[selected=true]:bg-surface-raised"
+                >
+                  {resolvedTheme === "dark" ? (
+                    <Sun className="size-4 shrink-0 text-subtle" aria-hidden />
+                  ) : (
+                    <Moon className="size-4 shrink-0 text-subtle" aria-hidden />
+                  )}
+                  Switch to {resolvedTheme === "dark" ? "light" : "dark"} theme
+                </Command.Item>
+
+                <Command.Item
+                  value="action-toggle-sidebar"
+                  onSelect={() =>
+                    run(() =>
+                      update({
+                        sidebarCollapsed: !preferences.sidebarCollapsed,
+                      }),
+                    )
+                  }
+                  className="flex cursor-pointer items-center gap-2.5 rounded-control px-2 py-2 text-body text-foreground data-[selected=true]:bg-surface-raised"
+                >
+                  <PanelLeft
+                    className="size-4 shrink-0 text-subtle"
+                    aria-hidden
+                  />
+                  {preferences.sidebarCollapsed ? "Expand" : "Collapse"} sidebar
+                </Command.Item>
+              </Command.Group>
+            </Command.List>
+          </Command>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
+  );
+}
+
+/** Binds ⌘K / Ctrl+K and returns the palette's open state. */
+export function useCommandPalette() {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === "k" && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        setOpen((current) => !current);
+      }
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  return { open, setOpen };
+}

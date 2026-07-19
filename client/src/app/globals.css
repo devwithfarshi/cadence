@@ -1,0 +1,424 @@
+@import "tailwindcss";
+
+/* Dark mode is class-driven so it can be persisted to localStorage and applied
+   before hydration, rather than following the OS. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---------------------------------------------------------------------------
+   Design tokens
+
+   Neutral, enterprise palette. Hierarchy is carried by type scale, spacing and
+   1px borders rather than shadow or colour. Accent is used sparingly and only
+   to mark interactive or active state.
+   --------------------------------------------------------------------------- */
+
+:root {
+  /* Surfaces */
+  --background: oklch(1 0 0);
+  --surface: oklch(1 0 0);
+  --surface-raised: oklch(0.985 0.002 247);
+  --surface-sunken: oklch(0.97 0.003 247);
+  --overlay: oklch(0.21 0.03 254 / 0.45);
+
+  /* Text */
+  --foreground: oklch(0.21 0.03 254);
+  --foreground-muted: oklch(0.5 0.02 254);
+  --foreground-subtle: oklch(0.62 0.018 254);
+  --foreground-inverted: oklch(0.985 0.002 247);
+
+  /* Lines */
+  --border: oklch(0.922 0.006 247);
+  --border-strong: oklch(0.86 0.01 247);
+  --ring: oklch(0.55 0.19 262);
+
+  /* Accent — corporate blue, used for active nav, primary actions, focus */
+  --accent: oklch(0.55 0.19 262);
+  --accent-hover: oklch(0.5 0.19 262);
+  --accent-active: oklch(0.45 0.18 262);
+  --accent-foreground: oklch(1 0 0);
+  --accent-subtle: oklch(0.96 0.02 262);
+  --accent-subtle-foreground: oklch(0.45 0.18 262);
+
+  /* Status */
+  --success: oklch(0.6 0.13 160);
+  --success-subtle: oklch(0.96 0.03 160);
+  --success-foreground: oklch(0.42 0.11 160);
+
+  --warning: oklch(0.72 0.15 75);
+  --warning-subtle: oklch(0.96 0.04 85);
+  --warning-foreground: oklch(0.48 0.12 70);
+
+  --danger: oklch(0.58 0.21 27);
+  --danger-subtle: oklch(0.96 0.03 25);
+  --danger-foreground: oklch(0.47 0.19 27);
+
+  --info: oklch(0.6 0.14 240);
+  --info-subtle: oklch(0.96 0.025 240);
+  --info-foreground: oklch(0.45 0.14 240);
+
+  /* Live / recording — reserved exclusively for active recording state */
+  --live: oklch(0.6 0.22 22);
+
+  /* Data visualisation ramp — distinguishable, equal weight, colour-blind safe */
+  /* Categorical series slots. Assigned in fixed order, never cycled.
+     Every step below is machine-validated, not eyeballed — lightness band,
+     chroma floor, CVD separation (protan/deutan/tritan), normal-vision floor
+     and 3:1 contrast against the surface. Worst adjacent pair: ΔE 8.7.
+
+     Two constraints shaped these hues:
+       · cyan (~190–200) has no step on white that clears both the chroma
+         floor and 3:1 contrast, so it is absent from the order;
+       · hues ~27, ~75 and ~160 are reserved for danger/warning/success and
+         are avoided here so a series never impersonates a status.
+
+     Series caps: all 6 are legal in adjacent-pair forms (lines, stacked and
+     grouped bars). Only the first 4 clear the all-pairs test, so scatter and
+     small-multiples forms must not exceed four series. */
+  --chart-1: oklch(0.602 0.185 262); /* blue    */
+  --chart-2: oklch(0.652 0.14 100); /* gold    */
+  --chart-3: oklch(0.62 0.185 330); /* magenta */
+  --chart-4: oklch(0.61 0.185 180); /* teal    */
+  --chart-5: oklch(0.615 0.185 290); /* violet  */
+  --chart-6: oklch(0.58 0.185 145); /* green   */
+
+  /* De-emphasis: the "rest" in an emphasis chart, and sparkline context. */
+  --chart-muted: oklch(0.78 0.012 254);
+
+  /* Radii — deliberately restrained */
+  --radius-control: 0.375rem;
+  --radius-surface: 0.5rem;
+
+  color-scheme: light;
+}
+
+.dark {
+  --background: oklch(0.17 0.014 258);
+  --surface: oklch(0.21 0.017 258);
+  --surface-raised: oklch(0.25 0.019 258);
+  --surface-sunken: oklch(0.14 0.012 258);
+  --overlay: oklch(0.12 0.015 258 / 0.65);
+
+  --foreground: oklch(0.97 0.003 247);
+  --foreground-muted: oklch(0.7 0.015 254);
+  --foreground-subtle: oklch(0.58 0.015 254);
+  --foreground-inverted: oklch(0.21 0.03 254);
+
+  --border: oklch(0.29 0.018 258);
+  --border-strong: oklch(0.37 0.02 258);
+  --ring: oklch(0.65 0.17 262);
+
+  --accent: oklch(0.62 0.18 262);
+  --accent-hover: oklch(0.68 0.17 262);
+  --accent-active: oklch(0.72 0.16 262);
+  --accent-foreground: oklch(0.16 0.02 262);
+  --accent-subtle: oklch(0.28 0.06 262);
+  --accent-subtle-foreground: oklch(0.82 0.09 262);
+
+  --success: oklch(0.68 0.14 160);
+  --success-subtle: oklch(0.28 0.05 160);
+  --success-foreground: oklch(0.82 0.11 160);
+
+  --warning: oklch(0.78 0.14 80);
+  --warning-subtle: oklch(0.3 0.05 75);
+  --warning-foreground: oklch(0.86 0.11 85);
+
+  --danger: oklch(0.65 0.19 27);
+  --danger-subtle: oklch(0.29 0.07 27);
+  --danger-foreground: oklch(0.83 0.11 27);
+
+  --info: oklch(0.68 0.13 240);
+  --info-subtle: oklch(0.28 0.05 240);
+  --info-foreground: oklch(0.83 0.09 240);
+
+  --live: oklch(0.68 0.2 22);
+
+  /* Dark steps are re-derived against the dark surface and separately
+     validated — not a lightness flip of the light set. Worst adjacent
+     pair: ΔE 8.6. Same hue order, same caps. */
+  --chart-1: oklch(0.58 0.185 262);
+  --chart-2: oklch(0.642 0.135 100);
+  --chart-3: oklch(0.592 0.185 330);
+  --chart-4: oklch(0.57 0.182 180);
+  --chart-5: oklch(0.59 0.185 290);
+  --chart-6: oklch(0.555 0.185 145);
+
+  --chart-muted: oklch(0.42 0.015 258);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-overlay: var(--overlay);
+
+  --color-foreground: var(--foreground);
+  --color-muted: var(--foreground-muted);
+  --color-subtle: var(--foreground-subtle);
+  --color-inverted: var(--foreground-inverted);
+
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-ring: var(--ring);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-active: var(--accent-active);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-subtle: var(--accent-subtle);
+  --color-accent-subtle-foreground: var(--accent-subtle-foreground);
+
+  --color-success: var(--success);
+  --color-success-subtle: var(--success-subtle);
+  --color-success-foreground: var(--success-foreground);
+
+  --color-warning: var(--warning);
+  --color-warning-subtle: var(--warning-subtle);
+  --color-warning-foreground: var(--warning-foreground);
+
+  --color-danger: var(--danger);
+  --color-danger-subtle: var(--danger-subtle);
+  --color-danger-foreground: var(--danger-foreground);
+
+  --color-info: var(--info);
+  --color-info-subtle: var(--info-subtle);
+  --color-info-foreground: var(--info-foreground);
+
+  --color-live: var(--live);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+  --color-chart-muted: var(--chart-muted);
+
+  --radius-control: var(--radius-control);
+  --radius-surface: var(--radius-surface);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  /* Type scale. Data-dense UI, so the body step is 14px and headings stay tight. */
+  --text-display: 1.75rem;
+  --text-display--line-height: 2.125rem;
+  --text-display--letter-spacing: -0.02em;
+  --text-display--font-weight: 600;
+
+  --text-heading: 1.25rem;
+  --text-heading--line-height: 1.75rem;
+  --text-heading--letter-spacing: -0.014em;
+  --text-heading--font-weight: 600;
+
+  --text-subheading: 1rem;
+  --text-subheading--line-height: 1.5rem;
+  --text-subheading--letter-spacing: -0.01em;
+  --text-subheading--font-weight: 600;
+
+  --text-body: 0.875rem;
+  --text-body--line-height: 1.375rem;
+
+  --text-caption: 0.8125rem;
+  --text-caption--line-height: 1.25rem;
+
+  --text-label: 0.75rem;
+  --text-label--line-height: 1rem;
+  --text-label--letter-spacing: 0.01em;
+  --text-label--font-weight: 500;
+
+  --text-overline: 0.6875rem;
+  --text-overline--line-height: 1rem;
+  --text-overline--letter-spacing: 0.06em;
+  --text-overline--font-weight: 600;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+    font-size: var(--text-body);
+    line-height: 1.375rem;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Visible, consistent focus for keyboard users only. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  /* Tabular figures wherever numbers are compared column-wise. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer utilities {
+  /* Thin, unobtrusive scrollbars for dense panels. */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: var(--border-strong);
+    border-radius: 9999px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Overlay transitions
+
+   Driven by the `data-state` attribute Radix sets on overlays, dialogs and
+   drawers. Kept here rather than pulled in as a plugin dependency — it is a
+   handful of keyframes and the motion stays deliberately restrained.
+   --------------------------------------------------------------------------- */
+
+@keyframes ama-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ama-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* Dialogs are centred with a 50% translate, so the keyframes must carry it. */
+@keyframes ama-dialog-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -48%) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes ama-dialog-out {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -48%) scale(0.97);
+  }
+}
+
+@keyframes ama-slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes ama-slide-out-right {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes ama-slide-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes ama-slide-out-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+@layer components {
+  .anim-overlay[data-state="open"] {
+    animation: ama-fade-in 150ms ease-out;
+  }
+  .anim-overlay[data-state="closed"] {
+    animation: ama-fade-out 120ms ease-in;
+  }
+
+  .anim-dialog[data-state="open"] {
+    animation: ama-dialog-in 160ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .anim-dialog[data-state="closed"] {
+    animation: ama-dialog-out 120ms ease-in;
+  }
+
+  .anim-sheet-right[data-state="open"] {
+    animation: ama-slide-in-right 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .anim-sheet-right[data-state="closed"] {
+    animation: ama-slide-out-right 180ms ease-in;
+  }
+
+  .anim-sheet-left[data-state="open"] {
+    animation: ama-slide-in-left 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .anim-sheet-left[data-state="closed"] {
+    animation: ama-slide-out-left 180ms ease-in;
+  }
+
+  /* Steady pulse on the live recording indicator. */
+  .anim-pulse-live {
+    animation: ama-pulse-live 2s ease-in-out infinite;
+  }
+}
+
+@keyframes ama-pulse-live {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* The standard reduced-motion reset. `!important` is required here: this has to
+   override animation and transition declarations set by individual components
+   and by Radix, which would otherwise win on specificity. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    /* biome-ignore-start lint/complexity/noImportantStyles: must override component-level motion */
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    /* biome-ignore-end lint/complexity/noImportantStyles: must override component-level motion */
+  }
+}
