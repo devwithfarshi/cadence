@@ -1,12 +1,12 @@
 "use client";
 
-import { addMinutes, format } from "date-fns";
+import { addMinutes } from "date-fns";
 import { useEffect, useState } from "react";
-import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import { DateTimePicker } from "@/components/ui/date-picker";
 import { Dialog, DialogClose, DialogContent } from "@/components/ui/dialog";
 import { Field, Input, Textarea } from "@/components/ui/input";
+import { MultiSelect } from "@/components/ui/multi-select";
 import {
   Select,
   SelectContent,
@@ -19,11 +19,6 @@ import { createMeeting } from "@/lib/api/meetings";
 import { listUsers } from "@/lib/api/workspace";
 import type { MeetingPlatform, User } from "@/types/domain";
 import { PLATFORM_LABELS } from "./status";
-
-/** `datetime-local` needs this exact shape; ISO strings are rejected. */
-function toLocalInput(date: Date): string {
-  return format(date, "yyyy-MM-dd'T'HH:mm");
-}
 
 interface FormErrors {
   title?: string;
@@ -61,8 +56,8 @@ export function NewMeetingDialog({
     const start = addMinutes(new Date(), 30);
     setTitle("");
     setDescription("");
-    setStartsAt(toLocalInput(start));
-    setEndsAt(toLocalInput(addMinutes(start, 30)));
+    setStartsAt(start.toISOString());
+    setEndsAt(addMinutes(start, 30).toISOString());
     setPlatform("google_meet");
     setParticipantIds([]);
     setTagsInput("");
@@ -99,9 +94,8 @@ export function NewMeetingDialog({
       await createMeeting({
         title,
         description,
-        // `datetime-local` yields local wall time; Date normalises it to UTC.
-        startsAt: new Date(startsAt).toISOString(),
-        endsAt: new Date(endsAt).toISOString(),
+        startsAt,
+        endsAt,
         platform,
         participantIds,
         tags: tagsInput
@@ -189,22 +183,20 @@ export function NewMeetingDialog({
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Starts" required>
               {(props) => (
-                <Input
+                <DateTimePicker
                   {...props}
-                  type="datetime-local"
                   value={startsAt}
-                  onChange={(event) => setStartsAt(event.target.value)}
+                  onChange={(next) => setStartsAt(next ?? "")}
                 />
               )}
             </Field>
 
             <Field label="Ends" required error={errors.endsAt}>
               {(props) => (
-                <Input
+                <DateTimePicker
                   {...props}
-                  type="datetime-local"
                   value={endsAt}
-                  onChange={(event) => setEndsAt(event.target.value)}
+                  onChange={(next) => setEndsAt(next ?? "")}
                 />
               )}
             </Field>
@@ -240,46 +232,22 @@ export function NewMeetingDialog({
                 : undefined
             }
           >
-            {() => (
-              <div className="max-h-44 space-y-0.5 overflow-y-auto scrollbar-thin rounded-control border border-border p-1">
-                {users.length === 0 ? (
-                  <p className="px-2 py-3 text-caption text-muted">
-                    Loading team members…
-                  </p>
-                ) : (
-                  users.map((user) => {
-                    const checked = participantIds.includes(user.id);
-                    return (
-                      <label
-                        key={user.id}
-                        // Explicitly bound: the Radix checkbox renders a button,
-                        // which implicit label wrapping does not associate with.
-                        htmlFor={`participant-${user.id}`}
-                        className="flex cursor-pointer items-center gap-2.5 rounded-control px-2 py-1.5 transition-colors hover:bg-surface-raised"
-                      >
-                        <Checkbox
-                          id={`participant-${user.id}`}
-                          checked={checked}
-                          onCheckedChange={() =>
-                            setParticipantIds((current) =>
-                              checked
-                                ? current.filter((id) => id !== user.id)
-                                : [...current, user.id],
-                            )
-                          }
-                        />
-                        <Avatar name={user.name} size="sm" />
-                        <span className="min-w-0 flex-1 truncate text-body text-foreground">
-                          {user.name}
-                        </span>
-                        <span className="shrink-0 text-label text-subtle">
-                          {user.jobTitle}
-                        </span>
-                      </label>
-                    );
-                  })
-                )}
-              </div>
+            {(props) => (
+              <MultiSelect
+                {...props}
+                options={users.map((user) => ({
+                  value: user.id,
+                  label: user.name,
+                  hint: user.jobTitle,
+                }))}
+                selected={participantIds}
+                onChange={setParticipantIds}
+                placeholder="Add participants…"
+                searchPlaceholder="Search team members…"
+                emptyMessage={
+                  users.length === 0 ? "Loading team members…" : "No matches"
+                }
+              />
             )}
           </Field>
 

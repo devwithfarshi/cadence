@@ -3,7 +3,9 @@
 import { Command } from "cmdk";
 import {
   CheckSquare,
+  Clock,
   FileText,
+  History,
   Library,
   Moon,
   PanelLeft,
@@ -18,9 +20,17 @@ import { Dialog as DialogPrimitive } from "radix-ui";
 import { useCallback, useEffect, useState } from "react";
 import { usePreferences } from "@/components/providers/preferences-provider";
 import { useToast } from "@/components/ui/toast";
-import { globalSearch, type SearchResult } from "@/lib/api/workspace";
+import {
+  clearRecentSearches,
+  getRecentMeetings,
+  getStoredPreferences,
+  globalSearch,
+  recordRecentSearch,
+  type SearchResult,
+} from "@/lib/api/workspace";
 import { useDebounced } from "@/lib/hooks/use-async";
 import { ALL_NAV_ITEMS } from "@/lib/navigation";
+import type { Meeting } from "@/types/domain";
 
 const RESULT_ICONS = {
   meeting: Video,
@@ -44,6 +54,19 @@ export function CommandPalette({
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const debouncedQuery = useDebounced(query, 180);
+
+  // Recency rails, shown only while the search box is empty.
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [recentMeetings, setRecentMeetings] = useState<Meeting[]>([]);
+
+  // Re-read on each open: both lists change as the user works elsewhere.
+  useEffect(() => {
+    if (!open) return;
+    setRecentSearches(getStoredPreferences().recentSearches);
+    getRecentMeetings(4)
+      .then(setRecentMeetings)
+      .catch(() => setRecentMeetings([]));
+  }, [open]);
 
   // Search records live in localStorage, so this queries on every keystroke
   // pause rather than filtering a preloaded list.
@@ -83,6 +106,20 @@ export function CommandPalette({
       action();
     },
     [onOpenChange],
+  );
+
+  /**
+   * Opens a result and remembers the query that found it.
+   *
+   * Recorded on selection rather than on keystroke, so the history holds
+   * searches that actually led somewhere instead of every partial word typed.
+   */
+  const openResult = useCallback(
+    (href: string) => {
+      recordRecentSearch(query);
+      run(() => router.push(href));
+    },
+    [query, run, router],
   );
 
   return (
@@ -127,6 +164,69 @@ export function CommandPalette({
                   : "Type to search, or pick a command below."}
               </Command.Empty>
 
+              {/* Recency rails: only useful before the user starts typing. */}
+              {!query.trim() && recentMeetings.length > 0 ? (
+                <Command.Group
+                  heading="Recently opened"
+                  className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:text-overline [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:text-subtle"
+                >
+                  {recentMeetings.map((meeting) => (
+                    <Command.Item
+                      key={`recent-${meeting.id}`}
+                      value={`recent-${meeting.id}`}
+                      onSelect={() =>
+                        run(() => router.push(`/meetings/${meeting.id}`))
+                      }
+                      className="flex cursor-pointer items-center gap-2.5 rounded-control px-2 py-2 text-body text-foreground data-[selected=true]:bg-surface-raised"
+                    >
+                      <Clock
+                        className="size-4 shrink-0 text-subtle"
+                        aria-hidden
+                      />
+                      <span className="min-w-0 flex-1 truncate">
+                        {meeting.title}
+                      </span>
+                    </Command.Item>
+                  ))}
+                </Command.Group>
+              ) : null}
+
+              {!query.trim() && recentSearches.length > 0 ? (
+                <Command.Group
+                  heading="Recent searches"
+                  className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:text-overline [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:text-subtle"
+                >
+                  {recentSearches.map((term) => (
+                    <Command.Item
+                      key={`search-${term}`}
+                      value={`search-${term}`}
+                      // Re-runs the search rather than navigating, which is what
+                      // a search history entry should do.
+                      onSelect={() => setQuery(term)}
+                      className="flex cursor-pointer items-center gap-2.5 rounded-control px-2 py-2 text-body text-foreground data-[selected=true]:bg-surface-raised"
+                    >
+                      <History
+                        className="size-4 shrink-0 text-subtle"
+                        aria-hidden
+                      />
+                      <span className="min-w-0 flex-1 truncate">{term}</span>
+                    </Command.Item>
+                  ))}
+
+                  <Command.Item
+                    value="clear-recent-searches"
+                    onSelect={() => {
+                      clearRecentSearches();
+                      setRecentSearches([]);
+                    }}
+                    className="flex cursor-pointer items-center gap-2.5 rounded-control px-2 py-2 text-caption text-muted data-[selected=true]:bg-surface-raised"
+                  >
+                    <span className="size-4 shrink-0" aria-hidden />
+                    Clear search history
+                  </Command.Item>
+                </Command.Group>
+              ) : null}
+
               {results.length > 0 ? (
                 <Command.Group
                   heading="Results"
@@ -138,7 +238,7 @@ export function CommandPalette({
                       <Command.Item
                         key={`${result.kind}-${result.id}`}
                         value={`${result.kind}-${result.id}`}
-                        onSelect={() => run(() => router.push(result.href))}
+                        onSelect={() => openResult(result.href)}
                         className="flex cursor-pointer items-center gap-2.5 rounded-control px-2 py-2 text-body text-foreground data-[selected=true]:bg-surface-raised"
                       >
                         <Icon

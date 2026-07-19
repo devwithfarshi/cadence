@@ -1,15 +1,24 @@
 "use client";
 
 import {
+  ArrowLeftRight,
+  CalendarPlus,
   Check,
+  CircleCheck,
+  ListPlus,
   Mail,
+  MessageSquare,
   Minus,
   MoreHorizontal,
   Plus,
+  Sparkles,
   Trash2,
+  Upload,
+  UserPlus,
   UserX,
   X,
 } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useState } from "react";
 import { useSession } from "@/components/providers/auth-provider";
 import { PageContainer, PageHeader } from "@/components/shell/page-header";
@@ -30,7 +39,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { EmptyState, ErrorState, SkeletonRows } from "@/components/ui/feedback";
+import {
+  EmptyState,
+  ErrorState,
+  Skeleton,
+  SkeletonRows,
+} from "@/components/ui/feedback";
 import { FilterMenu } from "@/components/ui/filter-menu";
 import { Field, Input, SearchInput } from "@/components/ui/input";
 import {
@@ -50,22 +64,33 @@ import {
   TableWrapper,
 } from "@/components/ui/table";
 import { Tabs, TabsCount, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Timeline } from "@/components/ui/timeline";
 import { useToast } from "@/components/ui/toast";
 import {
+  createOrganization,
+  deleteOrganization,
   inviteMember,
   listInvitations,
   listMembers,
+  listOrganizations,
   ROLE_PERMISSIONS,
   removeMember,
   resendInvitation,
   revokeInvitation,
   setMemberStatus,
+  switchOrganization,
   updateMemberRole,
 } from "@/lib/api/team";
 import { listActivity } from "@/lib/api/workspace";
 import { useAsync, useDebounced } from "@/lib/hooks/use-async";
+import { cn } from "@/lib/utils/cn";
 import { formatRelative, humanize } from "@/lib/utils/format";
-import type { User, UserRole } from "@/types/domain";
+import type {
+  ActivityKind,
+  OrganizationPlan,
+  User,
+  UserRole,
+} from "@/types/domain";
 
 const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: "owner", label: "Owner" },
@@ -73,6 +98,32 @@ const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: "member", label: "Member" },
   { value: "guest", label: "Guest" },
 ];
+
+/** Icon and tone per activity kind, so the timeline reads at a glance. */
+const ACTIVITY_ICONS: Record<ActivityKind, typeof Check> = {
+  meeting_created: CalendarPlus,
+  meeting_completed: CircleCheck,
+  summary_generated: Sparkles,
+  task_created: ListPlus,
+  task_completed: CircleCheck,
+  document_uploaded: Upload,
+  member_joined: UserPlus,
+  comment_added: MessageSquare,
+};
+
+const ACTIVITY_TONES: Record<
+  ActivityKind,
+  "default" | "accent" | "success" | "warning" | "danger"
+> = {
+  meeting_created: "default",
+  meeting_completed: "success",
+  summary_generated: "accent",
+  task_created: "default",
+  task_completed: "success",
+  document_uploaded: "default",
+  member_joined: "accent",
+  comment_added: "default",
+};
 
 const ROLE_TONE = {
   owner: "accent",
@@ -87,7 +138,19 @@ const STATUS_TONE = {
   suspended: "danger",
 } as const;
 
-type Tab = "members" | "invitations" | "permissions" | "activity";
+type Tab =
+  | "members"
+  | "organizations"
+  | "invitations"
+  | "permissions"
+  | "activity";
+
+const PLAN_LABELS: Record<OrganizationPlan, string> = {
+  free: "Free",
+  team: "Team",
+  business: "Business",
+  enterprise: "Enterprise",
+};
 
 export default function TeamPage() {
   const session = useSession();
@@ -100,6 +163,7 @@ export default function TeamPage() {
   const [statuses, setStatuses] = useState<User["status"][]>([]);
 
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [orgDialogOpen, setOrgDialogOpen] = useState(false);
   const [pendingRemove, setPendingRemove] = useState<User | null>(null);
   const [mutating, setMutating] = useState(false);
 
@@ -109,13 +173,15 @@ export default function TeamPage() {
     [debouncedSearch, roles, statuses],
   );
   const invitations = useAsync(() => listInvitations(), []);
+  const organizations = useAsync(() => listOrganizations(), []);
   const activity = useAsync(() => listActivity(20), []);
 
   const refresh = useCallback(() => {
     members.refetch();
     invitations.refetch();
+    organizations.refetch();
     activity.refetch();
-  }, [members, invitations, activity]);
+  }, [members, invitations, organizations, activity]);
 
   const pendingInvites = (invitations.data ?? []).filter(
     (invite) => invite.status === "pending",
@@ -201,6 +267,12 @@ export default function TeamPage() {
           <TabsTrigger value="members">
             Members
             {members.data ? <TabsCount>{members.data.length}</TabsCount> : null}
+          </TabsTrigger>
+          <TabsTrigger value="organizations">
+            Organizations
+            {organizations.data ? (
+              <TabsCount>{organizations.data.length}</TabsCount>
+            ) : null}
           </TabsTrigger>
           <TabsTrigger value="invitations">
             Invitations
@@ -406,6 +478,106 @@ export default function TeamPage() {
         </>
       ) : null}
 
+      {tab === "organizations" ? (
+        <div className="space-y-3">
+          {organizations.loading && !organizations.data ? (
+            <Skeleton className="h-40 w-full" />
+          ) : (
+            (organizations.data ?? []).map((org) => (
+              <div
+                key={org.id}
+                className={cn(
+                  "flex flex-wrap items-center gap-4 rounded-surface border bg-surface p-4",
+                  org.isCurrent ? "border-accent/50" : "border-border",
+                )}
+              >
+                <span
+                  aria-hidden
+                  className="flex size-10 shrink-0 items-center justify-center rounded-surface border border-border bg-surface-raised text-body font-semibold text-muted"
+                >
+                  {org.name.slice(0, 2).toUpperCase()}
+                </span>
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="truncate text-body font-medium text-foreground">
+                      {org.name}
+                    </p>
+                    {org.isCurrent ? (
+                      <Badge tone="accent" size="sm">
+                        Current
+                      </Badge>
+                    ) : null}
+                    <Badge tone="neutral" size="sm">
+                      {PLAN_LABELS[org.plan]}
+                    </Badge>
+                  </div>
+                  <p className="mt-0.5 text-caption text-muted">
+                    {org.slug} · {org.memberIds.length}{" "}
+                    {org.memberIds.length === 1 ? "member" : "members"}
+                  </p>
+                </div>
+
+                <div className="flex shrink-0 items-center gap-2">
+                  {org.isCurrent ? (
+                    <span className="text-caption text-subtle">Active</span>
+                  ) : (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={async () => {
+                        await switchOrganization(org.id);
+                        refresh();
+                        toast({
+                          tone: "success",
+                          title: `Switched to ${org.name}`,
+                        });
+                      }}
+                    >
+                      <ArrowLeftRight />
+                      Switch
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`Delete ${org.name}`}
+                    disabled={org.isCurrent}
+                    onClick={async () => {
+                      try {
+                        await deleteOrganization(org.id);
+                        refresh();
+                        toast({ tone: "info", title: "Organization deleted" });
+                      } catch (error) {
+                        toast({
+                          tone: "error",
+                          title: "Could not delete",
+                          description:
+                            error instanceof Error
+                              ? error.message
+                              : "Please try again.",
+                        });
+                      }
+                    }}
+                  >
+                    <Trash2 />
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
+
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setOrgDialogOpen(true)}
+          >
+            <Plus />
+            New organization
+          </Button>
+        </div>
+      ) : null}
+
       {tab === "invitations" ? (
         (invitations.data ?? []).length === 0 ? (
           <EmptyState
@@ -564,25 +736,36 @@ export default function TeamPage() {
               description="Workspace activity will show up here as your team works."
             />
           ) : (
-            <ul className="divide-y divide-border">
-              {(activity.data ?? []).map((entry) => (
-                <li key={entry.id} className="flex gap-3 px-4 py-3">
-                  <span
-                    aria-hidden
-                    className="mt-2 size-1.5 shrink-0 rounded-full bg-border-strong"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-body text-foreground">{entry.summary}</p>
-                    <p className="mt-0.5 text-caption text-subtle">
-                      {formatRelative(entry.createdAt)}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <div className="p-4">
+              <Timeline
+                entries={(activity.data ?? []).map((entry) => ({
+                  id: entry.id,
+                  title: entry.href ? (
+                    <Link
+                      href={entry.href}
+                      className="hover:text-accent hover:underline"
+                    >
+                      {entry.summary}
+                    </Link>
+                  ) : (
+                    entry.summary
+                  ),
+                  timestamp: formatRelative(entry.createdAt),
+                  icon: ACTIVITY_ICONS[entry.kind],
+                  tone: ACTIVITY_TONES[entry.kind],
+                }))}
+              />
+            </div>
           )}
         </div>
       ) : null}
+
+      <NewOrganizationDialog
+        open={orgDialogOpen}
+        onOpenChange={setOrgDialogOpen}
+        ownerId={session.userId}
+        onCreated={refresh}
+      />
 
       <InviteDialog
         open={inviteOpen}
@@ -721,6 +904,93 @@ function InviteDialog({
                   )}
                 </SelectContent>
               </Select>
+            )}
+          </Field>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function NewOrganizationDialog({
+  open,
+  onOpenChange,
+  ownerId,
+  onCreated,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  ownerId: string;
+  onCreated: () => void;
+}) {
+  const { toast } = useToast();
+  const [name, setName] = useState("");
+  const [error, setError] = useState<string>();
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    setSubmitting(true);
+    setError(undefined);
+
+    try {
+      await createOrganization({ name, ownerId });
+      setName("");
+      onOpenChange(false);
+      onCreated();
+      toast({ tone: "success", title: "Organization created" });
+    } catch (caught) {
+      setError(
+        caught instanceof Error ? caught.message : "Could not create it.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        title="New organization"
+        description="A separate workspace with its own members and meetings."
+        size="sm"
+        footer={
+          <>
+            <DialogClose asChild>
+              <Button variant="secondary" size="sm">
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button
+              variant="primary"
+              size="sm"
+              type="submit"
+              form="new-org-form"
+              loading={submitting}
+            >
+              Create
+            </Button>
+          </>
+        }
+      >
+        <form
+          id="new-org-form"
+          onSubmit={handleSubmit}
+          className="space-y-4"
+          noValidate
+        >
+          <Field label="Organization name" required error={error}>
+            {(props) => (
+              <Input
+                {...props}
+                value={name}
+                onChange={(event) => {
+                  setName(event.target.value);
+                  if (error) setError(undefined);
+                }}
+                placeholder="Northwind Research"
+                autoFocus
+              />
             )}
           </Field>
         </form>

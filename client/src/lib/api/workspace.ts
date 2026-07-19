@@ -226,6 +226,31 @@ export function recordRecentSearch(term: string): void {
   });
 }
 
+export function clearRecentSearches(): void {
+  savePreferences({ recentSearches: [] });
+}
+
+/**
+ * Resolves the stored recent-meeting ids to real meetings.
+ *
+ * Ids are filtered against what still exists — a meeting can be deleted after
+ * being visited, and a dangling entry would render as a broken row. The stored
+ * order is preserved, since that is the recency ranking.
+ */
+export function getRecentMeetings(limit = 5): Promise<Meeting[]> {
+  return request(() => {
+    const ids = getStoredPreferences().recentMeetingIds;
+    const byId = new Map(
+      meetings.all().map((meeting) => [meeting.id, meeting]),
+    );
+
+    return ids
+      .map((id) => byId.get(id))
+      .filter((meeting): meeting is Meeting => meeting !== undefined)
+      .slice(0, limit);
+  });
+}
+
 /* -------------------------------------------------------------------------- */
 /* Dashboard statistics                                                       */
 /* -------------------------------------------------------------------------- */

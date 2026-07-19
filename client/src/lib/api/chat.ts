@@ -31,8 +31,8 @@ export const PROMPT_SUGGESTIONS = [
   "What did we decide in the last roadmap review?",
   "What are the open risks across recent meetings?",
   "Which action items are overdue, and who owns them?",
-  "Summarise where the Northwind renewal stands",
-  "What has the team been meeting about this month?",
+  "Generate a weekly report",
+  "Rewrite the last summary as a brief",
 ];
 
 export function listConversations(): Promise<ChatConversation[]> {
@@ -290,8 +290,183 @@ function sourcesFrom(found: Retrieved): ChatSource[] {
   return sources.slice(0, 5);
 }
 
+/**
+ * Builds a status report from the workspace.
+ *
+ * Every number is counted from stored records rather than estimated, so the
+ * report can be checked against the Analytics page and will agree with it.
+ */
+function composeReport(question: string): string {
+  const lower = question.toLowerCase();
+  const days = lower.includes("month")
+    ? 30
+    : lower.includes("quarter")
+      ? 90
+      : 7;
+  const since = Date.now() - days * 24 * 60 * 60 * 1000;
+  const period = days === 7 ? "week" : days === 30 ? "month" : "quarter";
+
+  const inPeriod = meetings
+    .all()
+    .filter(
+      (meeting) =>
+        !meeting.isArchived && new Date(meeting.startsAt).getTime() >= since,
+    );
+
+  const held = inPeriod.filter((meeting) => meeting.status === "completed");
+  const hours = held.reduce((sum, m) => sum + m.durationSeconds / 3600, 0);
+
+  const allTasks = tasks.all();
+  const created = allTasks.filter(
+    (task) => new Date(task.createdAt).getTime() >= since,
+  );
+  const completed = allTasks.filter(
+    (task) =>
+      task.completedAt !== null &&
+      new Date(task.completedAt).getTime() >= since,
+  );
+  const overdue = allTasks.filter(
+    (task) =>
+      task.status !== "done" &&
+      task.dueDate !== null &&
+      new Date(task.dueDate).getTime() < Date.now(),
+  );
+
+  if (inPeriod.length === 0 && created.length === 0) {
+    return `There is no activity in the last ${period} to report on. Try a longer period, such as "generate a monthly report".`;
+  }
+
+  const decisions = summaries
+    .all()
+    .filter((summary) => new Date(summary.generatedAt).getTime() >= since)
+    .flatMap((summary) =>
+      summary.highlights.filter((h) => h.kind === "decision"),
+    )
+    .slice(0, 5);
+
+  const risks = summaries
+    .all()
+    .filter((summary) => new Date(summary.generatedAt).getTime() >= since)
+    .flatMap((summary) => summary.highlights.filter((h) => h.kind === "risk"))
+    .slice(0, 3);
+
+  const sections = [
+    `ACTIVITY REPORT — LAST ${period.toUpperCase()}`,
+    `${held.length} ${held.length === 1 ? "meeting" : "meetings"} held, ${hours.toFixed(1)} hours recorded. ${created.length} action ${created.length === 1 ? "item" : "items"} created and ${completed.length} completed.`,
+  ];
+
+  if (decisions.length > 0) {
+    sections.push(
+      `Decisions made:\n${decisions.map((d) => `• ${d.text}`).join("\n")}`,
+    );
+  }
+  if (risks.length > 0) {
+    sections.push(
+      `Risks raised:\n${risks.map((r) => `• ${r.text}`).join("\n")}`,
+    );
+  }
+  if (overdue.length > 0) {
+    sections.push(
+      `${overdue.length} action ${overdue.length === 1 ? "item is" : "items are"} now overdue:\n${overdue
+        .slice(0, 5)
+        .map((task) => `• ${task.title}`)
+        .join("\n")}`,
+    );
+  } else {
+    sections.push("Nothing is currently overdue.");
+  }
+
+  return sections.join("\n\n");
+}
+
+/**
+ * Rewrites an existing summary at a requested length or tone.
+ *
+ * Works only from the stored summary text — it re-frames what is already
+ * recorded and never adds claims that were not in the original.
+ */
+function composeRewrite(question: string, found: Retrieved): string {
+  const lower = question.toLowerCase();
+
+  // Prefer a summary the question actually matched; otherwise the newest one.
+  const target =
+    found.summaries[0] ??
+    [...summaries.all()].sort(
+      (a, b) =>
+        new Date(b.generatedAt).getTime() - new Date(a.generatedAt).getTime(),
+    )[0];
+
+  if (!target) {
+    return "There are no summaries in this workspace to rewrite yet. Record a meeting and generate a summary first.";
+  }
+
+  const meeting = meetings.find(target.meetingId);
+  const title = meeting ? `"${meeting.title}"` : "the meeting";
+
+  if (
+    lower.includes("brief") ||
+    lower.includes("short") ||
+    lower.includes("shorter")
+  ) {
+    // First sentence only — the shortest honest reduction.
+    const firstSentence =
+      target.executiveSummary.split(/(?<=\.)\s/)[0] ?? target.executiveSummary;
+    const decisions = target.highlights.filter((h) => h.kind === "decision");
+
+    return `Brief version of the ${title} summary:\n\n${firstSentence}${
+      decisions.length > 0 ? `\n\nKey decision: ${decisions[0].text}` : ""
+    }`;
+  }
+
+  if (lower.includes("bullet") || lower.includes("bullets")) {
+    return `${title} summary as bullets:\n\n${target.keyPoints
+      .map((point) => `• ${point}`)
+      .join("\n")}`;
+  }
+
+  if (
+    lower.includes("detail") ||
+    lower.includes("longer") ||
+    lower.includes("expand")
+  ) {
+    const parts = [target.executiveSummary];
+    if (target.keyPoints.length > 0) {
+      parts.push(
+        `Key points:\n${target.keyPoints.map((p) => `• ${p}`).join("\n")}`,
+      );
+    }
+    for (const kind of ["decision", "risk", "question"] as const) {
+      const entries = target.highlights.filter((h) => h.kind === kind);
+      if (entries.length === 0) continue;
+      const heading =
+        kind === "decision"
+          ? "Decisions"
+          : kind === "risk"
+            ? "Risks"
+            : "Open questions";
+      parts.push(
+        `${heading}:\n${entries.map((e) => `• ${e.text}`).join("\n")}`,
+      );
+    }
+    return `Detailed version of the ${title} summary:\n\n${parts.join("\n\n")}`;
+  }
+
+  // No length named, so state the options rather than guessing.
+  return `I can rewrite the ${title} summary as a brief, as bullets, or in more detail — say which and I'll do it.\n\nCurrent summary:\n\n${target.executiveSummary}`;
+}
+
 function composeAnswer(question: string, found: Retrieved): string {
   const lower = question.toLowerCase();
+
+  // Report generation and rewriting are commands, not retrieval questions.
+  if (
+    /\b(report|summarise the week|weekly summary|status update)\b/.test(lower)
+  ) {
+    return composeReport(question);
+  }
+  if (/\b(rewrite|reword|rephrase|shorten|condense)\b/.test(lower)) {
+    return composeRewrite(question, found);
+  }
 
   // Overdue work is a direct lookup, not a retrieval problem.
   if (lower.includes("overdue")) {

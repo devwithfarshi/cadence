@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Dialog, DialogClose, DialogContent } from "@/components/ui/dialog";
 import { Field, Input, Textarea } from "@/components/ui/input";
 import {
@@ -197,11 +198,10 @@ export function NewTaskDialog({
 
             <Field label="Due date">
               {(props) => (
-                <Input
+                <DatePicker
                   {...props}
-                  type="date"
-                  value={dueDate}
-                  onChange={(event) => setDueDate(event.target.value)}
+                  value={dueDate || null}
+                  onChange={(next) => setDueDate(next ?? "")}
                 />
               )}
             </Field>

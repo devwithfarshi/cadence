@@ -15,7 +15,7 @@
 const NAMESPACE = "ama";
 // Bump whenever the seed shape or record structure changes, so existing demo
 // workspaces are rebuilt rather than left on stale data.
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 const VERSION_KEY = `${NAMESPACE}:schema_version`;
 
 /** Event fired on same-tab writes; `storage` only fires for *other* tabs. */
@@ -36,6 +36,8 @@ export type StorageKey =
   | "activity"
   | "integrations"
   | "conversations"
+  | "organizations"
+  | "workspace"
   | "api_keys"
   | "invitations"
   | "preferences"

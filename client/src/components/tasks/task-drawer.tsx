@@ -7,6 +7,7 @@ import { PriorityBadge, TaskStatusBadge } from "@/components/meetings/status";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { Field, Input, Textarea } from "@/components/ui/input";
 import {
@@ -44,7 +45,7 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
   done: "Done",
 };
 
-/** `<input type="date">` needs `yyyy-MM-dd`; an ISO timestamp is rejected. */
+/** DatePicker works in `yyyy-MM-dd`; the stored value is a full ISO timestamp. */
 function toDateInput(iso: string | null): string {
   if (!iso) return "";
   return new Date(iso).toISOString().slice(0, 10);
@@ -285,15 +286,12 @@ export function TaskDrawer({
 
               <Field label="Due date">
                 {(props) => (
-                  <Input
+                  <DatePicker
                     {...props}
-                    type="date"
-                    value={toDateInput(task.dueDate)}
-                    onChange={(event) =>
+                    value={toDateInput(task.dueDate) || null}
+                    onChange={(next) =>
                       patch({
-                        dueDate: event.target.value
-                          ? new Date(event.target.value).toISOString()
-                          : null,
+                        dueDate: next ? new Date(next).toISOString() : null,
                       })
                     }
                   />

@@ -40,8 +40,10 @@ import { getCurrentUser, resetWorkspace, updateProfile } from "@/lib/api/auth";
 import {
   createApiKey,
   deleteApiKey,
+  getWorkspaceSettings,
   listApiKeys,
   revokeApiKey,
+  saveWorkspaceSettings,
 } from "@/lib/api/team";
 import { useAsync } from "@/lib/hooks/use-async";
 import { cn } from "@/lib/utils/cn";
@@ -49,8 +51,11 @@ import { formatRelative } from "@/lib/utils/format";
 import type {
   AiPreferences,
   ApiKey,
+  MeetingVisibility,
   NotificationKind,
+  RetentionPeriod,
   ThemeMode,
+  WorkspaceSettings,
 } from "@/types/domain";
 
 type Section =
@@ -211,60 +216,7 @@ export default function SettingsPage() {
 
         {section === "workspace" ? (
           <>
-            <SettingsCard
-              title="Workspace"
-              description="How this workspace is identified across the product."
-            >
-              <div className="divide-y divide-border">
-                <SettingRow
-                  label="Workspace name"
-                  description="Shown in the sidebar and on shared links."
-                  control={
-                    <Input
-                      defaultValue="Northwind"
-                      className="w-56"
-                      aria-label="Workspace name"
-                    />
-                  }
-                />
-                <SettingRow
-                  label="Default meeting visibility"
-                  description="Who can see a new recording by default."
-                  control={
-                    <Select defaultValue="team">
-                      <SelectTrigger className="w-56">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="team">
-                          Everyone in workspace
-                        </SelectItem>
-                        <SelectItem value="participants">
-                          Participants only
-                        </SelectItem>
-                        <SelectItem value="private">Only me</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  }
-                />
-                <SettingRow
-                  label="Retention"
-                  description="How long recordings and transcripts are kept."
-                  control={
-                    <Select defaultValue="12m">
-                      <SelectTrigger className="w-56">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="3m">3 months</SelectItem>
-                        <SelectItem value="12m">12 months</SelectItem>
-                        <SelectItem value="forever">Indefinitely</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  }
-                />
-              </div>
-            </SettingsCard>
+            <WorkspaceSection />
 
             <DangerZone
               onReset={async () => {
@@ -1125,5 +1077,98 @@ function DangerZone({ onReset }: { onReset: () => Promise<void> }) {
         }}
       />
     </>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Workspace                                                                  */
+/* -------------------------------------------------------------------------- */
+
+function WorkspaceSection() {
+  const { toast } = useToast();
+  // Read once on mount; the store is the source of truth from then on.
+  const [settings, setSettings] = useState<WorkspaceSettings>(() =>
+    getWorkspaceSettings(),
+  );
+  const [name, setName] = useState(settings.name);
+
+  function persist(patch: Partial<WorkspaceSettings>) {
+    setSettings(saveWorkspaceSettings(patch));
+    toast({ tone: "success", title: "Workspace updated" });
+  }
+
+  return (
+    <SettingsCard
+      title="Workspace"
+      description="How this workspace is identified across the product."
+    >
+      <div className="divide-y divide-border">
+        <SettingRow
+          label="Workspace name"
+          description="Shown in the sidebar and on shared links."
+          control={
+            <Input
+              value={name}
+              aria-label="Workspace name"
+              className="w-56"
+              onChange={(event) => setName(event.target.value)}
+              // Commits on blur so every keystroke isn't a write.
+              onBlur={() => {
+                const trimmed = name.trim();
+                if (!trimmed) {
+                  setName(settings.name);
+                  return;
+                }
+                if (trimmed !== settings.name) persist({ name: trimmed });
+              }}
+            />
+          }
+        />
+
+        <SettingRow
+          label="Default meeting visibility"
+          description="Who can see a new recording by default."
+          control={
+            <Select
+              value={settings.defaultVisibility}
+              onValueChange={(value) =>
+                persist({ defaultVisibility: value as MeetingVisibility })
+              }
+            >
+              <SelectTrigger className="w-56">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="workspace">Everyone in workspace</SelectItem>
+                <SelectItem value="participants">Participants only</SelectItem>
+                <SelectItem value="private">Only me</SelectItem>
+              </SelectContent>
+            </Select>
+          }
+        />
+
+        <SettingRow
+          label="Retention"
+          description="How long recordings and transcripts are kept."
+          control={
+            <Select
+              value={settings.retention}
+              onValueChange={(value) =>
+                persist({ retention: value as RetentionPeriod })
+              }
+            >
+              <SelectTrigger className="w-56">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="3m">3 months</SelectItem>
+                <SelectItem value="12m">12 months</SelectItem>
+                <SelectItem value="forever">Indefinitely</SelectItem>
+              </SelectContent>
+            </Select>
+          }
+        />
+      </div>
+    </SettingsCard>
   );
 }

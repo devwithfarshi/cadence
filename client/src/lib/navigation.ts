@@ -15,8 +15,13 @@ import {
   Video,
 } from "lucide-react";
 
+import type { TranslationKey } from "./i18n";
+
 export interface NavItem {
+  /** English label; also the fallback when a translation is missing. */
   label: string;
+  /** Key used to translate the label. */
+  labelKey: TranslationKey;
   href: string;
   icon: LucideIcon;
   /**
@@ -29,48 +34,86 @@ export interface NavItem {
 
 export interface NavSection {
   label: string;
+  labelKey: TranslationKey;
   items: NavItem[];
 }
 
 export const NAV_SECTIONS: NavSection[] = [
   {
     label: "Workspace",
+    labelKey: "nav.section.workspace",
     items: [
-      { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-      { label: "Meetings", href: "/meetings", icon: Video },
-      { label: "Live", href: "/live", icon: Radio },
-      { label: "Calendar", href: "/calendar", icon: Calendar },
+      {
+        label: "Dashboard",
+        labelKey: "nav.dashboard",
+        href: "/dashboard",
+        icon: LayoutDashboard,
+      },
+      {
+        label: "Meetings",
+        labelKey: "nav.meetings",
+        href: "/meetings",
+        icon: Video,
+      },
+      { label: "Live", labelKey: "nav.live", href: "/live", icon: Radio },
+      {
+        label: "Calendar",
+        labelKey: "nav.calendar",
+        href: "/calendar",
+        icon: Calendar,
+      },
     ],
   },
   {
     label: "Intelligence",
+    labelKey: "nav.section.intelligence",
     items: [
-      { label: "AI Chat", href: "/chat", icon: MessagesSquare },
+      {
+        label: "AI Chat",
+        labelKey: "nav.chat",
+        href: "/chat",
+        icon: MessagesSquare,
+      },
       {
         label: "Knowledge Base",
+        labelKey: "nav.knowledge",
         href: "/knowledge",
         icon: Library,
       },
       {
         label: "Documents",
+        labelKey: "nav.documents",
         href: "/documents",
         icon: FileText,
       },
-      { label: "Tasks", href: "/tasks", icon: CheckSquare },
+      {
+        label: "Tasks",
+        labelKey: "nav.tasks",
+        href: "/tasks",
+        icon: CheckSquare,
+      },
     ],
   },
   {
     label: "Organisation",
+    labelKey: "nav.section.organisation",
     items: [
-      { label: "Team", href: "/team", icon: Users },
-      { label: "Analytics", href: "/analytics", icon: BarChart3 },
+      { label: "Team", labelKey: "nav.team", href: "/team", icon: Users },
+      {
+        label: "Analytics",
+        labelKey: "nav.analytics",
+        href: "/analytics",
+        icon: BarChart3,
+      },
       {
         label: "Integrations",
+        labelKey: "nav.integrations",
         href: "/integrations",
         icon: Plug,
       },
       {
         label: "Notifications",
+        labelKey: "nav.notifications",
         href: "/notifications",
         icon: Bell,
       },
@@ -80,6 +123,7 @@ export const NAV_SECTIONS: NavSection[] = [
 
 export const SETTINGS_ITEM: NavItem = {
   label: "Settings",
+  labelKey: "nav.settings",
   href: "/settings",
   icon: Settings,
 };

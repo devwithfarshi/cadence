@@ -6,6 +6,7 @@ import { PriorityBadge, TaskStatusBadge } from "@/components/meetings/status";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DatePicker } from "@/components/ui/date-picker";
 import { EmptyState, Skeleton } from "@/components/ui/feedback";
 import { Field, Input } from "@/components/ui/input";
 import {
@@ -221,12 +222,10 @@ export function ActionItemsPanel({
 
             <Field label="Due date">
               {(props) => (
-                <Input
+                <DatePicker
                   {...props}
-                  type="date"
-                  className="h-8 text-caption"
-                  value={newDueDate}
-                  onChange={(event) => setNewDueDate(event.target.value)}
+                  value={newDueDate || null}
+                  onChange={(next) => setNewDueDate(next ?? "")}
                 />
               )}
             </Field>

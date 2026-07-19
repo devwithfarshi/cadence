@@ -236,52 +236,84 @@ export default function ChatPage() {
                   </div>
                 ) : (
                   <div className="space-y-6">
-                    {active.messages.map((message) => (
-                      <div key={message.id} className="flex gap-3">
-                        {message.role === "assistant" ? (
-                          <span
-                            aria-hidden
-                            className="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent-subtle"
+                    {active.messages.map((message) => {
+                      const isUser = message.role === "user";
+
+                      return (
+                        <div
+                          key={message.id}
+                          className={cn(
+                            "flex gap-3",
+                            // The user's own turn mirrors to the right, which is
+                            // what makes a thread scannable at a glance.
+                            isUser && "flex-row-reverse",
+                          )}
+                        >
+                          {isUser ? (
+                            <Avatar
+                              name={session.name}
+                              size="md"
+                              className="shrink-0"
+                            />
+                          ) : (
+                            <span
+                              aria-hidden
+                              className="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent-subtle"
+                            >
+                              <Sparkles className="size-4 text-accent" />
+                            </span>
+                          )}
+
+                          <div
+                            className={cn(
+                              "min-w-0",
+                              // The assistant's answers carry citations and lists,
+                              // so they get the full column; questions are short
+                              // and read better constrained.
+                              isUser ? "max-w-[80%]" : "flex-1",
+                            )}
                           >
-                            <Sparkles className="size-4 text-accent" />
-                          </span>
-                        ) : (
-                          <Avatar
-                            name={session.name}
-                            size="md"
-                            className="shrink-0"
-                          />
-                        )}
+                            <p
+                              className={cn(
+                                "mb-1 text-caption font-medium text-foreground",
+                                isUser && "text-right",
+                              )}
+                            >
+                              {isUser ? session.name : "Cadence AI"}
+                            </p>
 
-                        <div className="min-w-0 flex-1">
-                          <p className="mb-1 text-caption font-medium text-foreground">
-                            {message.role === "assistant"
-                              ? "Cadence AI"
-                              : session.name}
-                          </p>
-
-                          <div className="whitespace-pre-wrap text-body text-muted">
-                            {message.content}
-                          </div>
-
-                          {message.sources.length > 0 ? (
-                            <div className="mt-3">
-                              <p className="mb-1.5 text-overline uppercase text-subtle">
-                                Sources
-                              </p>
-                              <div className="flex flex-wrap gap-1.5">
-                                {message.sources.map((source) => (
-                                  <SourceChip
-                                    key={`${source.kind}-${source.id}`}
-                                    source={source}
-                                  />
-                                ))}
-                              </div>
+                            <div
+                              className={cn(
+                                "whitespace-pre-wrap rounded-surface px-3 py-2 text-body",
+                                isUser
+                                  ? // Accent bubble, its own foreground token so
+                                    // contrast holds in both themes.
+                                    "bg-accent text-accent-foreground"
+                                  : "border border-border bg-surface text-muted",
+                              )}
+                            >
+                              {message.content}
                             </div>
-                          ) : null}
+
+                            {message.sources.length > 0 ? (
+                              <div className="mt-3">
+                                <p className="mb-1.5 text-overline uppercase text-subtle">
+                                  Sources
+                                </p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {message.sources.map((source) => (
+                                    <SourceChip
+                                      key={`${source.kind}-${source.id}`}
+                                      source={source}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+                            ) : null}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
 
                     {sending ? (
                       <div className="flex gap-3">

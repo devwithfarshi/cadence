@@ -5,14 +5,17 @@
  * they share one audience and one permission model.
  */
 
-import { collection } from "@/lib/db/storage";
+import { DEFAULT_WORKSPACE_SETTINGS } from "@/lib/db/seed";
+import { collection, read, write } from "@/lib/db/storage";
 import type {
   ApiKey,
   Integration,
   IntegrationStatus,
   Invitation,
+  Organization,
   User,
   UserRole,
+  WorkspaceSettings,
 } from "@/types/domain";
 import { ApiError, generateId, now, request } from "./client";
 
@@ -20,6 +23,7 @@ const users = collection<User>("users");
 const invitations = collection<Invitation>("invitations");
 const apiKeys = collection<ApiKey>("api_keys");
 const integrations = collection<Integration>("integrations");
+const organizations = collection<Organization>("organizations");
 
 /* -------------------------------------------------------------------------- */
 /* Members                                                                    */
@@ -328,4 +332,130 @@ export function disconnectIntegration(id: string): Promise<Integration> {
     if (!updated) throw new ApiError("Integration not found", 404);
     return updated;
   });
+}
+
+/* -------------------------------------------------------------------------- */
+/* Organizations                                                              */
+/* -------------------------------------------------------------------------- */
+
+export function listOrganizations(): Promise<Organization[]> {
+  return request(() =>
+    organizations
+      .all()
+      // Current first, then alphabetical — the switcher reads better that way.
+      .sort(
+        (a, b) =>
+          Number(b.isCurrent) - Number(a.isCurrent) ||
+          a.name.localeCompare(b.name),
+      ),
+  );
+}
+
+/**
+ * Switches the active organization.
+ *
+ * Exactly one is current at a time, so this clears the flag everywhere before
+ * setting it — a second "current" org would make the switcher ambiguous.
+ */
+export function switchOrganization(id: string): Promise<Organization> {
+  return request(() => {
+    const all = organizations.all();
+    if (!all.some((org) => org.id === id)) {
+      throw new ApiError("Organization not found", 404);
+    }
+
+    organizations.replaceAll(
+      all.map((org) => ({
+        ...org,
+        isCurrent: org.id === id,
+        updatedAt: now(),
+      })),
+    );
+
+    return organizations.find(id) as Organization;
+  });
+}
+
+export function createOrganization(input: {
+  name: string;
+  ownerId: string;
+}): Promise<Organization> {
+  return request(() => {
+    const name = input.name.trim();
+    if (!name) throw new ApiError("Give the organization a name", 422);
+
+    const slug = name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+
+    if (organizations.all().some((org) => org.slug === slug)) {
+      throw new ApiError("An organization with that name already exists", 409);
+    }
+
+    const timestamp = now();
+    return organizations.insert({
+      id: generateId("org"),
+      name,
+      slug,
+      plan: "team",
+      memberIds: [input.ownerId],
+      // A newly created org does not steal focus from the current one.
+      isCurrent: false,
+      ownerId: input.ownerId,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+  });
+}
+
+export function renameOrganization(
+  id: string,
+  name: string,
+): Promise<Organization> {
+  return request(() => {
+    const trimmed = name.trim();
+    if (!trimmed) throw new ApiError("Name cannot be empty", 422);
+
+    const updated = organizations.update(id, {
+      name: trimmed,
+      updatedAt: now(),
+    });
+    if (!updated) throw new ApiError("Organization not found", 404);
+    return updated;
+  });
+}
+
+export function deleteOrganization(id: string): Promise<void> {
+  return request(() => {
+    const org = organizations.find(id);
+    if (!org) throw new ApiError("Organization not found", 404);
+    if (org.isCurrent) {
+      throw new ApiError(
+        "Switch to another organization before deleting this one",
+        409,
+      );
+    }
+    organizations.remove(id);
+  });
+}
+
+/* -------------------------------------------------------------------------- */
+/* Workspace settings                                                         */
+/* -------------------------------------------------------------------------- */
+
+/** Synchronous read; the settings form needs a value on first render. */
+export function getWorkspaceSettings(): WorkspaceSettings {
+  return {
+    ...DEFAULT_WORKSPACE_SETTINGS,
+    ...read<Partial<WorkspaceSettings>>("workspace", {}),
+  };
+}
+
+export function saveWorkspaceSettings(
+  patch: Partial<WorkspaceSettings>,
+): WorkspaceSettings {
+  const next = { ...getWorkspaceSettings(), ...patch };
+  write("workspace", next);
+  return next;
 }

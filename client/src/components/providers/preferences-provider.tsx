@@ -11,6 +11,7 @@ import {
 } from "react";
 import { getStoredPreferences, savePreferences } from "@/lib/api/workspace";
 import { DEFAULT_PREFERENCES } from "@/lib/db/seed";
+import { createTranslator, type TranslationKey } from "@/lib/i18n";
 import type { Preferences, ThemeMode } from "@/types/domain";
 
 interface PreferencesContextValue {
@@ -20,6 +21,8 @@ interface PreferencesContextValue {
   ready: boolean;
   /** Theme actually applied, with "system" already resolved. */
   resolvedTheme: "light" | "dark";
+  /** Translates an interface string into the selected language. */
+  t: (key: TranslationKey) => string;
 }
 
 const PreferencesContext = createContext<PreferencesContextValue | null>(null);
@@ -85,9 +88,15 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Rebuilt only when the language actually changes.
+  const t = useMemo(
+    () => createTranslator(preferences.language),
+    [preferences.language],
+  );
+
   const value = useMemo(
-    () => ({ preferences, update, ready, resolvedTheme }),
-    [preferences, update, ready, resolvedTheme],
+    () => ({ preferences, update, ready, resolvedTheme, t }),
+    [preferences, update, ready, resolvedTheme, t],
   );
 
   return (

@@ -314,6 +314,33 @@ export interface Integration extends BaseEntity {
 }
 
 /* -------------------------------------------------------------------------- */
+/* Organizations & workspace                                                  */
+/* -------------------------------------------------------------------------- */
+
+export type OrganizationPlan = "free" | "team" | "business" | "enterprise";
+
+export interface Organization extends BaseEntity {
+  name: string;
+  /** URL-safe identifier, shown in the workspace switcher. */
+  slug: string;
+  plan: OrganizationPlan;
+  /** Ids of members belonging to this organization. */
+  memberIds: string[];
+  /** Exactly one organization is active at a time. */
+  isCurrent: boolean;
+  ownerId: string;
+}
+
+export type MeetingVisibility = "workspace" | "participants" | "private";
+export type RetentionPeriod = "3m" | "12m" | "forever";
+
+export interface WorkspaceSettings {
+  name: string;
+  defaultVisibility: MeetingVisibility;
+  retention: RetentionPeriod;
+}
+
+/* -------------------------------------------------------------------------- */
 /* API keys & invitations                                                     */
 /* -------------------------------------------------------------------------- */
 

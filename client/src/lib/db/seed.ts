@@ -21,10 +21,12 @@ import type {
   Integration,
   KnowledgeItem,
   Meeting,
+  Organization,
   Participant,
   Preferences,
   TranscriptSegment,
   User,
+  WorkspaceSettings,
 } from "@/types/domain";
 import { collection, markSeeded, needsSeed, write } from "./storage";
 
@@ -727,6 +729,7 @@ interface SeedResult {
   activity: ActivityLog[];
   integrations: Integration[];
   conversations: ChatConversation[];
+  organizations: Organization[];
 }
 
 function build(): SeedResult {
@@ -1517,8 +1520,38 @@ function build(): SeedResult {
     },
   ];
 
+  /* --- Organizations ----------------------------------------------------- */
+
+  // Two orgs so the switcher has something to switch between; the second is a
+  // smaller sister workspace, which is the common real-world shape.
+  const organizations: Organization[] = [
+    {
+      id: "org_001",
+      name: "Northwind",
+      slug: "northwind",
+      plan: "business",
+      memberIds: users.map((user) => user.id),
+      isCurrent: true,
+      ownerId: users[0].id,
+      createdAt: iso(offset(-540 * DAY)),
+      updatedAt: iso(offset(-20 * DAY)),
+    },
+    {
+      id: "org_002",
+      name: "Northwind Labs",
+      slug: "northwind-labs",
+      plan: "team",
+      memberIds: [users[0].id, users[1].id, users[2].id],
+      isCurrent: false,
+      ownerId: users[0].id,
+      createdAt: iso(offset(-120 * DAY)),
+      updatedAt: iso(offset(-9 * DAY)),
+    },
+  ];
+
   return {
     users,
+    organizations,
     meetings,
     transcripts,
     summaries,
@@ -1536,6 +1569,12 @@ function build(): SeedResult {
 /* -------------------------------------------------------------------------- */
 /* Entry point                                                                */
 /* -------------------------------------------------------------------------- */
+
+export const DEFAULT_WORKSPACE_SETTINGS: WorkspaceSettings = {
+  name: "Northwind",
+  defaultVisibility: "workspace",
+  retention: "12m",
+};
 
 export const DEFAULT_PREFERENCES: Preferences = {
   theme: "system",
@@ -1592,6 +1631,8 @@ export function seedIfEmpty(): void {
   collection<ActivityLog>("activity").replaceAll(data.activity);
   collection<Integration>("integrations").replaceAll(data.integrations);
   collection<ChatConversation>("conversations").replaceAll(data.conversations);
+  collection<Organization>("organizations").replaceAll(data.organizations);
+  write("workspace", DEFAULT_WORKSPACE_SETTINGS);
   write("preferences", DEFAULT_PREFERENCES);
 
   markSeeded();

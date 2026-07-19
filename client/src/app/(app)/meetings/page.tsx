@@ -4,6 +4,7 @@ import {
   Archive,
   ArchiveRestore,
   Copy,
+  History,
   LayoutGrid,
   List,
   MoreHorizontal,
@@ -373,14 +374,22 @@ export default function MeetingsPage() {
         title="Meetings"
         description="Every recorded, scheduled and archived meeting in your workspace."
         actions={
-          <Button
-            variant="primary"
-            size="md"
-            onClick={() => setCreateOpen(true)}
-          >
-            <Plus />
-            New meeting
-          </Button>
+          <>
+            <Button variant="secondary" size="md" asChild>
+              <Link href="/meetings/history">
+                <History />
+                History
+              </Link>
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              onClick={() => setCreateOpen(true)}
+            >
+              <Plus />
+              New meeting
+            </Button>
+          </>
         }
       />
 

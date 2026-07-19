@@ -19,10 +19,13 @@ function NavLink({
   item,
   collapsed,
   active,
+  label,
 }: {
   item: NavItem;
   collapsed: boolean;
   active: boolean;
+  /** Already translated by the caller, which owns the preferences context. */
+  label: string;
 }) {
   const link = (
     <Link
@@ -45,7 +48,7 @@ function NavLink({
       />
       {!collapsed ? (
         <>
-          <span className="truncate">{item.label}</span>
+          <span className="truncate">{label}</span>
           {item.upcoming ? (
             <span
               className="ml-auto text-overline uppercase text-subtle"
@@ -61,7 +64,7 @@ function NavLink({
 
   // When collapsed the label is gone, so the tooltip carries the name instead.
   return collapsed ? (
-    <Tooltip label={item.label} side="right">
+    <Tooltip label={label} side="right">
       {link}
     </Tooltip>
   ) : (
@@ -71,7 +74,7 @@ function NavLink({
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { preferences, update } = usePreferences();
+  const { preferences, update, t } = usePreferences();
   const collapsed = preferences.sidebarCollapsed;
 
   return (
@@ -113,7 +116,7 @@ export function Sidebar() {
           <Button variant="primary" size="md" className="w-full" asChild>
             <Link href="/meetings?new=1">
               <Plus />
-              New meeting
+              {t("action.newMeeting")}
             </Link>
           </Button>
         )}
@@ -131,7 +134,7 @@ export function Sidebar() {
           <div key={section.label} className="space-y-1">
             {!collapsed ? (
               <p className="px-2 pb-1 text-overline uppercase text-subtle">
-                {section.label}
+                {t(section.labelKey)}
               </p>
             ) : (
               <div className="mx-auto my-2 h-px w-6 bg-border" aria-hidden />
@@ -141,6 +144,7 @@ export function Sidebar() {
               <NavLink
                 key={item.href}
                 item={item}
+                label={t(item.labelKey)}
                 collapsed={collapsed}
                 active={isActiveRoute(pathname, item.href)}
               />
@@ -158,6 +162,7 @@ export function Sidebar() {
       >
         <NavLink
           item={SETTINGS_ITEM}
+          label={t(SETTINGS_ITEM.labelKey)}
           collapsed={collapsed}
           active={isActiveRoute(pathname, SETTINGS_ITEM.href)}
         />
@@ -177,7 +182,7 @@ export function Sidebar() {
           ) : (
             <>
               <PanelLeftClose className="size-4 shrink-0" aria-hidden />
-              <span>Collapse</span>
+              <span>{t("action.collapse")}</span>
             </>
           )}
         </button>
