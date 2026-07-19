@@ -1,0 +1,54 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{json,yml,yaml,md,csproj,props,slnx}]
+indent_size = 2
+
+[*.cs]
+# --- usings ---------------------------------------------------------------
+dotnet_sort_system_directives_first = true
+dotnet_separate_import_directive_groups = false
+csharp_using_directive_placement = outside_namespace:warning
+
+# --- modern C# ------------------------------------------------------------
+csharp_style_namespace_declarations = file_scoped:warning
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_style_expression_bodied_methods = when_on_single_line:suggestion
+csharp_prefer_braces = true:warning
+csharp_style_prefer_primary_constructors = true:suggestion
+
+# --- correctness ----------------------------------------------------------
+dotnet_style_require_accessibility_modifiers = always:warning
+dotnet_style_readonly_field = true:warning
+dotnet_code_quality_unused_parameters = all:warning
+
+# Async methods must accept a CancellationToken (§16) — an abandoned request
+# should stop doing work rather than run to completion.
+dotnet_diagnostic.CA2016.severity = warning
+# Do not expose generic lists / arrays on public API surfaces.
+dotnet_diagnostic.CA1002.severity = warning
+# ConfigureAwait is not needed in ASP.NET Core (no synchronization context).
+dotnet_diagnostic.CA2007.severity = none
+# Localisation of exception/log strings is out of scope.
+dotnet_diagnostic.CA1303.severity = none
+
+# --- naming ---------------------------------------------------------------
+dotnet_naming_rule.private_fields_underscore.severity = warning
+dotnet_naming_rule.private_fields_underscore.symbols = private_fields
+dotnet_naming_rule.private_fields_underscore.style = underscore_camel
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+dotnet_naming_style.underscore_camel.required_prefix = _
+dotnet_naming_style.underscore_camel.capitalization = camel_case
+
+# Generated EF migrations are machine-written; don't hold them to the style rules.
+[**/Persistence/Migrations/*.cs]
+generated_code = true
+dotnet_analyzer_diagnostic.severity = none

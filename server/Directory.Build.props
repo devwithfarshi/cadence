@@ -1,0 +1,24 @@
+<Project>
+
+  <!-- Shared build settings for every project in the solution (blueprint §2.2). -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <!-- A warning that can be ignored will be ignored. Failing the build is the
+         only reliable way to keep the codebase clean over time. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+
+    <!-- Feeds XML doc comments to Swashbuckle so OpenAPI carries real descriptions (§17.1). -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- CS1591: missing XML comment on a public member. Requiring a doc comment on every
+         DTO property is noise; endpoint summaries are what Swagger actually surfaces. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+</Project>

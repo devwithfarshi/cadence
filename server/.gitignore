@@ -1,0 +1,23 @@
+# Build output
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+
+# User-specific / IDE
+*.user
+*.suo
+.vs/
+.idea/
+*.swp
+
+# Secrets — the real .env never leaves the machine.
+# .env.example IS committed and is the contract for "what do I need to run this?".
+.env
+!.env.example
+
+# Coverage
+coverage/
+*.coverage
+TestResults/
