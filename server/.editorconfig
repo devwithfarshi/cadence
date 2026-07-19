@@ -25,7 +25,7 @@ csharp_prefer_braces = true:warning
 csharp_style_prefer_primary_constructors = true:suggestion
 
 # --- correctness ----------------------------------------------------------
-dotnet_style_require_accessibility_modifiers = always:warning
+dotnet_style_require_accessibility_modifiers = for_non_interface_members:warning
 dotnet_style_readonly_field = true:warning
 dotnet_code_quality_unused_parameters = all:warning
 
