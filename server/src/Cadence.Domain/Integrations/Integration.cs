@@ -12,7 +12,7 @@ namespace Cadence.Domain.Integrations;
 /// by this integration's id (blueprint §15.4). This row is safe to return from the API; the token
 /// record never is.
 /// </remarks>
-public sealed class Integration : AggregateRoot
+public sealed class Integration : AggregateRoot, ITenantScoped
 {
     private Integration()
     {

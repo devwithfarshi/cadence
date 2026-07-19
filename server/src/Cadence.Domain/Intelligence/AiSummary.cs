@@ -17,7 +17,7 @@ namespace Cadence.Domain.Intelligence;
 /// generated content without that provenance invites readers to treat it as human-authored.
 /// </para>
 /// </remarks>
-public sealed class AiSummary : AggregateRoot
+public sealed class AiSummary : AggregateRoot, ITenantScoped
 {
     private readonly List<string> _keyPoints = [];
     private readonly List<SummaryHighlight> _highlights = [];

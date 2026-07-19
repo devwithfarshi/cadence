@@ -12,7 +12,7 @@ namespace Cadence.Domain.Meetings;
 /// pipeline — transcription, then summarisation, then action-item extraction (blueprint §14.3).
 /// The meeting itself knows nothing about any of those modules.
 /// </remarks>
-public sealed class Meeting : AggregateRoot, ISoftDeletable
+public sealed class Meeting : AggregateRoot, ISoftDeletable, ITenantScoped
 {
     private readonly List<Participant> _participants = [];
     private readonly List<Bookmark> _bookmarks = [];

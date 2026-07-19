@@ -12,7 +12,7 @@ namespace Cadence.Domain.Identity;
 /// the link signs in with Google first, and the invitation is matched against the verified Google
 /// email — so a forwarded link cannot be redeemed by the wrong person (blueprint §5.6).
 /// </remarks>
-public sealed class Invitation : AggregateRoot
+public sealed class Invitation : AggregateRoot, ITenantScoped
 {
     private Invitation()
     {

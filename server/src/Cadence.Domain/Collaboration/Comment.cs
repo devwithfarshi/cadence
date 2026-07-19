@@ -9,7 +9,7 @@ namespace Cadence.Domain.Collaboration;
 /// Deliberately not arbitrarily deep. Unbounded nesting needs recursive queries and produces a UI
 /// nobody can follow; one level covers the actual use — someone responds to a point.
 /// </remarks>
-public sealed class Comment : AggregateRoot, ISoftDeletable
+public sealed class Comment : AggregateRoot, ISoftDeletable, ITenantScoped
 {
     private readonly List<Guid> _mentions = [];
 

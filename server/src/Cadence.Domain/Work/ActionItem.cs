@@ -13,7 +13,7 @@ namespace Cadence.Domain.Work;
 /// meeting must never silently delete someone's assigned work. The same reasoning applies to
 /// <see cref="AssigneeId"/>: removing a member unassigns their tasks rather than destroying them.
 /// </remarks>
-public sealed class ActionItem : AggregateRoot, ISoftDeletable
+public sealed class ActionItem : AggregateRoot, ISoftDeletable, ITenantScoped
 {
     private readonly List<string> _tags = [];
 

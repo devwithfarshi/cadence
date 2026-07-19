@@ -12,6 +12,10 @@ namespace Cadence.Domain.Identity;
 /// </remarks>
 public sealed class WorkspaceSettings : ValueObject
 {
+    // Materialisation constructor for the persistence layer. EF needs a parameterless one it
+    // can call before setting the mapped members; the factories below are the only path callers get.
+    private WorkspaceSettings() => Name = null!;
+
     private WorkspaceSettings(string name, MeetingVisibility defaultVisibility, RetentionPeriod retention)
     {
         Name = name;
@@ -19,11 +23,11 @@ public sealed class WorkspaceSettings : ValueObject
         Retention = retention;
     }
 
-    public string Name { get; }
+    public string Name { get; private set; }
 
-    public MeetingVisibility DefaultVisibility { get; }
+    public MeetingVisibility DefaultVisibility { get; private set; }
 
-    public RetentionPeriod Retention { get; }
+    public RetentionPeriod Retention { get; private set; }
 
     public static WorkspaceSettings Default(string name) =>
         new(name, MeetingVisibility.Workspace, RetentionPeriod.TwelveMonths);

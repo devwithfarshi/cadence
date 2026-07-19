@@ -8,6 +8,10 @@ namespace Cadence.Domain.Identity;
 /// </summary>
 public sealed class AiPreferences : ValueObject
 {
+    // Materialisation constructor for the persistence layer. EF needs a parameterless one it
+    // can call before setting the mapped members; the factories below are the only path callers get.
+    private AiPreferences() => OutputLanguage = null!;
+
     private AiPreferences(
         SummaryLength summaryLength,
         bool autoSummarise,
@@ -22,20 +26,20 @@ public sealed class AiPreferences : ValueObject
         OutputLanguage = outputLanguage;
     }
 
-    public SummaryLength SummaryLength { get; }
+    public SummaryLength SummaryLength { get; private set; }
 
-    public bool AutoSummarise { get; }
+    public bool AutoSummarise { get; private set; }
 
-    public bool AutoExtractActionItems { get; }
+    public bool AutoExtractActionItems { get; private set; }
 
     /// <summary>
     /// When set, detected items are held for review instead of created outright. Defaults to on:
     /// an extraction that is confidently wrong should not silently assign work to a colleague.
     /// </summary>
-    public bool RequireActionItemReview { get; }
+    public bool RequireActionItemReview { get; private set; }
 
     /// <summary>BCP-47 tag the model is asked to answer in.</summary>
-    public string OutputLanguage { get; }
+    public string OutputLanguage { get; private set; }
 
     public static AiPreferences Default() =>
         new(Enums.SummaryLength.Standard, true, true, true, "en");

@@ -10,7 +10,7 @@ namespace Cadence.Domain.Identity;
 /// Role lives here rather than on <see cref="User"/> because the same person can be an owner of one
 /// organization and a guest in another. This is the join that makes multi-tenancy real.
 /// </remarks>
-public sealed class OrganizationMember : Entity
+public sealed class OrganizationMember : Entity, ITenantScoped
 {
     private OrganizationMember()
     {

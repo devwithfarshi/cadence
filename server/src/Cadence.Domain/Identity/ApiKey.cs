@@ -18,7 +18,7 @@ namespace Cadence.Domain.Identity;
 /// a log can be traced back to a row without knowing the secret.
 /// </para>
 /// </remarks>
-public sealed class ApiKey : AggregateRoot
+public sealed class ApiKey : AggregateRoot, ITenantScoped
 {
     private readonly List<ApiKeyScope> _scopes = [];
 

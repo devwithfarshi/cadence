@@ -10,7 +10,7 @@ namespace Cadence.Domain.Chat;
 /// user question plus its answer must be one transactional unit or the thread can end up with a
 /// dangling question.
 /// </remarks>
-public sealed class Conversation : AggregateRoot, ISoftDeletable
+public sealed class Conversation : AggregateRoot, ISoftDeletable, ITenantScoped
 {
     private readonly List<ChatMessage> _messages = [];
 

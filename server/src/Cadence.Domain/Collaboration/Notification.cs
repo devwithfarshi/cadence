@@ -11,7 +11,7 @@ namespace Cadence.Domain.Collaboration;
 /// deleting it should actually free the row. High-volume tables that only ever grow are a
 /// maintenance problem for no benefit.
 /// </remarks>
-public sealed class Notification : Entity
+public sealed class Notification : Entity, ITenantScoped
 {
     private Notification()
     {

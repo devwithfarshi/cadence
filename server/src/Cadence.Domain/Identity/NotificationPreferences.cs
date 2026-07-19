@@ -14,6 +14,14 @@ namespace Cadence.Domain.Identity;
 /// </remarks>
 public sealed class NotificationPreferences : ValueObject
 {
+    // Materialisation constructor for the persistence layer. EF needs a parameterless one it
+    // can call before setting the mapped members; the factories below are the only path callers get.
+    private NotificationPreferences()
+    {
+        InApp = null!;
+        Email = null!;
+    }
+
     private NotificationPreferences(
         IReadOnlyCollection<NotificationKind> inApp,
         IReadOnlyCollection<NotificationKind> email)
@@ -22,9 +30,9 @@ public sealed class NotificationPreferences : ValueObject
         Email = email;
     }
 
-    public IReadOnlyCollection<NotificationKind> InApp { get; }
+    public IReadOnlyCollection<NotificationKind> InApp { get; private set; }
 
-    public IReadOnlyCollection<NotificationKind> Email { get; }
+    public IReadOnlyCollection<NotificationKind> Email { get; private set; }
 
     public static NotificationPreferences Default() =>
         new(

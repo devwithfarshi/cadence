@@ -12,7 +12,7 @@ namespace Cadence.Domain.Library;
 /// phantom document. If an asset later disappears, the row survives and the UI shows a failed state
 /// rather than a broken link.
 /// </remarks>
-public sealed class Document : AggregateRoot, ISoftDeletable
+public sealed class Document : AggregateRoot, ISoftDeletable, ITenantScoped
 {
     private readonly List<string> _tags = [];
 

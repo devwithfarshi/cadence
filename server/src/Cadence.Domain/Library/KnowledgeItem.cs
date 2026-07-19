@@ -6,7 +6,7 @@ namespace Cadence.Domain.Library;
 /// <summary>
 /// A curated entry in the knowledge base: a note, a summary, a document pointer or a link.
 /// </summary>
-public sealed class KnowledgeItem : AggregateRoot, ISoftDeletable
+public sealed class KnowledgeItem : AggregateRoot, ISoftDeletable, ITenantScoped
 {
     private readonly List<string> _tags = [];
 

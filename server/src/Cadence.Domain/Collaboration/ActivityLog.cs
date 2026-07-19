@@ -12,7 +12,7 @@ namespace Cadence.Domain.Collaboration;
 /// must still read correctly after the thing it refers to is renamed or deleted, and resolving names
 /// at read time would either produce dangling rows or require joining every module.
 /// </remarks>
-public sealed class ActivityLog : Entity
+public sealed class ActivityLog : Entity, ITenantScoped
 {
     private ActivityLog()
     {

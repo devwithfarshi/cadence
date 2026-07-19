@@ -14,6 +14,14 @@ namespace Cadence.Domain.Chat;
 /// </remarks>
 public sealed class ChatSource : ValueObject
 {
+    // Materialisation constructor for the persistence layer. EF needs a parameterless one it can
+    // call before setting the mapped members; the factory below is the only path callers get.
+    private ChatSource()
+    {
+        Label = null!;
+        Href = null!;
+    }
+
     private ChatSource(Guid sourceId, ChatSourceKind kind, string label, string href)
     {
         SourceId = sourceId;
@@ -23,14 +31,14 @@ public sealed class ChatSource : ValueObject
     }
 
     /// <summary>Id of the cited meeting, document or knowledge item.</summary>
-    public Guid SourceId { get; }
+    public Guid SourceId { get; private set; }
 
-    public ChatSourceKind Kind { get; }
+    public ChatSourceKind Kind { get; private set; }
 
     /// <summary>Display text, captured at answer time so the citation survives a later rename.</summary>
-    public string Label { get; }
+    public string Label { get; private set; }
 
-    public string Href { get; }
+    public string Href { get; private set; }
 
     public static ChatSource Create(Guid sourceId, ChatSourceKind kind, string label, string href)
     {
