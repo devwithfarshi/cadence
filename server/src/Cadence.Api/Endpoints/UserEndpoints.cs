@@ -1,5 +1,6 @@
 using Cadence.Api.Common;
 using Cadence.Api.Configuration;
+using Cadence.Application.Common.Models;
 using Cadence.Application.Modules.Auth;
 using Cadence.Application.Modules.Users;
 using Cadence.Domain.Enums;
@@ -147,15 +148,44 @@ public static class UserEndpoints
         return result.IsSuccess ? TypedResults.NoContent() : result.ToProblem(context);
     }
 
+    /// <remarks>
+    /// <paramref name="role"/> and <paramref name="status"/> bind as strings rather than enums:
+    /// query-string binding bypasses the JSON converter and parses case-sensitively, so
+    /// <c>?role=admin</c> — the spelling the rest of the API uses — would be rejected as a malformed
+    /// request. See <see cref="EnumQuery"/>.
+    /// </remarks>
     private static async Task<IResult> ListAsync(
         HttpContext context,
         ISender sender,
         CancellationToken cancellationToken,
         [FromQuery] string? search = null,
-        [FromQuery] UserRole? role = null,
-        [FromQuery] UserStatus? status = null)
+        [FromQuery] string? role = null,
+        [FromQuery] string? status = null)
     {
-        var result = await sender.Send(new ListUsersQuery(search, role, status), cancellationToken);
+        if (!string.IsNullOrWhiteSpace(role) && !EnumQuery.TryParse<UserRole>(role, out _))
+        {
+            return Result
+                .Failure(Error.Validation(
+                    "user.invalid_role",
+                    $"'{role}' is not a role. Expected one of: {EnumQuery.Allowed<UserRole>()}."))
+                .ToProblem(context);
+        }
+
+        if (!string.IsNullOrWhiteSpace(status) && !EnumQuery.TryParse<UserStatus>(status, out _))
+        {
+            return Result
+                .Failure(Error.Validation(
+                    "user.invalid_status",
+                    $"'{status}' is not a status. Expected one of: {EnumQuery.Allowed<UserStatus>()}."))
+                .ToProblem(context);
+        }
+
+        var result = await sender.Send(
+            new ListUsersQuery(
+                search,
+                EnumQuery.TryParse<UserRole>(role, out var parsedRole) ? parsedRole : null,
+                EnumQuery.TryParse<UserStatus>(status, out var parsedStatus) ? parsedStatus : null),
+            cancellationToken);
 
         return result.IsSuccess ? TypedResults.Ok(result.Value) : result.ToProblem(context);
     }

@@ -97,6 +97,7 @@ try
     app.MapUserEndpoints();
     app.MapOrganizationEndpoints();
     app.MapInvitationEndpoints();
+    app.MapMeetingEndpoints();
 
     MapHealthEndpoints(app);
 

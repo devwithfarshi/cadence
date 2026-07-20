@@ -1,5 +1,6 @@
 using Cadence.Api.Common;
 using Cadence.Api.Configuration;
+using Cadence.Application.Common.Models;
 using Cadence.Application.Modules.Auth;
 using Cadence.Application.Modules.Organizations;
 using Cadence.Application.Modules.Users;
@@ -198,15 +199,42 @@ public static class OrganizationEndpoints
         return result.IsSuccess ? TypedResults.Ok(result.Value) : result.ToProblem(context);
     }
 
+    /// <remarks>
+    /// Strings rather than enums for the same reason as the user directory — query-string binding
+    /// parses enums case-sensitively and would reject <c>?role=admin</c>. See <see cref="EnumQuery"/>.
+    /// </remarks>
     private static async Task<IResult> ListMembersAsync(
         HttpContext context,
         ISender sender,
         CancellationToken cancellationToken,
         [FromQuery] string? search = null,
-        [FromQuery] UserRole? role = null,
-        [FromQuery] UserStatus? status = null)
+        [FromQuery] string? role = null,
+        [FromQuery] string? status = null)
     {
-        var result = await sender.Send(new ListUsersQuery(search, role, status), cancellationToken);
+        if (!string.IsNullOrWhiteSpace(role) && !EnumQuery.TryParse<UserRole>(role, out _))
+        {
+            return Result
+                .Failure(Error.Validation(
+                    "member.invalid_role",
+                    $"'{role}' is not a role. Expected one of: {EnumQuery.Allowed<UserRole>()}."))
+                .ToProblem(context);
+        }
+
+        if (!string.IsNullOrWhiteSpace(status) && !EnumQuery.TryParse<UserStatus>(status, out _))
+        {
+            return Result
+                .Failure(Error.Validation(
+                    "member.invalid_status",
+                    $"'{status}' is not a status. Expected one of: {EnumQuery.Allowed<UserStatus>()}."))
+                .ToProblem(context);
+        }
+
+        var result = await sender.Send(
+            new ListUsersQuery(
+                search,
+                EnumQuery.TryParse<UserRole>(role, out var parsedRole) ? parsedRole : null,
+                EnumQuery.TryParse<UserStatus>(status, out var parsedStatus) ? parsedStatus : null),
+            cancellationToken);
 
         return result.IsSuccess ? TypedResults.Ok(result.Value) : result.ToProblem(context);
     }

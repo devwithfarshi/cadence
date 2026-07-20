@@ -32,7 +32,7 @@ public sealed class AuthFlowTests
         var response = await SignInAsync(client, "token-provision");
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var auth = await response.Content.ReadFromJsonAsync<AuthResponse>();
+        var auth = await response.Content.ReadJsonAsync<AuthResponse>();
         auth.ShouldNotBeNull();
         auth.User.Email.ShouldBe(email);
         auth.User.OrganizationId.ShouldNotBe(Guid.Empty);
@@ -171,7 +171,7 @@ public sealed class AuthFlowTests
     {
         using var client = CreateClient();
         _fixture.Google.Stage("token-bearer", UniqueEmail());
-        var auth = await (await SignInAsync(client, "token-bearer")).Content.ReadFromJsonAsync<AuthResponse>();
+        var auth = await (await SignInAsync(client, "token-bearer")).Content.ReadJsonAsync<AuthResponse>();
 
         using var request = new HttpRequestMessage(
             HttpMethod.Post,
@@ -200,7 +200,7 @@ public sealed class AuthFlowTests
         _fixture.Google.Stage("token-logout", UniqueEmail());
         var signIn = await SignInAsync(client, "token-logout");
         var refreshToken = ReadRefreshToken(signIn);
-        var auth = await signIn.Content.ReadFromJsonAsync<AuthResponse>();
+        var auth = await signIn.Content.ReadJsonAsync<AuthResponse>();
 
         using var logout = new HttpRequestMessage(
             HttpMethod.Post,
@@ -247,7 +247,7 @@ public sealed class AuthFlowTests
         });
 
     private static Task<HttpResponseMessage> SignInAsync(HttpClient client, string idToken) =>
-        client.PostAsJsonAsync(
+        client.PostJsonAsync(
             new Uri("/api/v1/auth/google", UriKind.Relative),
             new GoogleSignInRequest(idToken));
 

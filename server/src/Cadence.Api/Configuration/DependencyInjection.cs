@@ -1,5 +1,7 @@
 using System.Globalization;
 using System.Threading.RateLimiting;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Cadence.Api.Common;
 using Cadence.Application.Common.Abstractions;
 using Cadence.Infrastructure.Persistence;
@@ -30,6 +32,7 @@ public static class DependencyInjection
 
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUser, CurrentUser>();
+        services.AddCadenceJson();
 
         services.AddCadenceAuthentication(configuration);
         services.AddCadenceProblemDetails();
@@ -40,6 +43,27 @@ public static class DependencyInjection
 
         return services;
     }
+
+    /// <summary>
+    /// Serialises enums as the snake_case strings the client's types are written in.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Without this, <c>System.Text.Json</c> writes enums as <b>integers</b> — a meeting would come
+    /// back as <c>"status": 2</c> where the client's type says <c>"completed"</c>. Round-tripping
+    /// between two .NET processes hides it completely, which is why it survived three modules: a
+    /// typed test deserialises <c>2</c> back into the right enum and passes.
+    /// </para>
+    /// <para>
+    /// The policy matches the one the database converter uses, so a value reads identically in a
+    /// response, in a query string and in a psql session. Reading stays case-insensitive, so a
+    /// client sending <c>"Completed"</c> is understood rather than rejected.
+    /// </para>
+    /// </remarks>
+    private static void AddCadenceJson(this IServiceCollection services) =>
+        services.ConfigureHttpJsonOptions(options =>
+            options.SerializerOptions.Converters.Add(
+                new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseLower)));
 
     private static void AddCadenceProblemDetails(this IServiceCollection services)
     {

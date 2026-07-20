@@ -35,7 +35,7 @@ public sealed class OrganizationFlowTests
 
         await CreateOrganizationAsync(theirs, "Someone Else Ltd");
 
-        var organizations = await mine.GetFromJsonAsync<List<OrganizationDto>>(Url("/api/v1/organizations"));
+        var organizations = await mine.GetJsonAsync<List<OrganizationDto>>(Url("/api/v1/organizations"));
 
         organizations.ShouldNotBeNull();
         // Their personal workspace and the one they just created are both invisible here.
@@ -55,7 +55,7 @@ public sealed class OrganizationFlowTests
 
         created.IsCurrent.ShouldBeFalse();
 
-        var me = await client.GetFromJsonAsync<UserDto>(Url("/api/v1/users/me"));
+        var me = await client.GetJsonAsync<UserDto>(Url("/api/v1/users/me"));
         me!.OrganizationId.ShouldBe(session.User.OrganizationId);
     }
 
@@ -67,7 +67,7 @@ public sealed class OrganizationFlowTests
 
         await CreateOrganizationAsync(client, name);
 
-        var second = await client.PostAsJsonAsync(
+        var second = await client.PostJsonAsync(
             Url("/api/v1/organizations"),
             new CreateOrganizationRequest(name));
 
@@ -90,7 +90,7 @@ public sealed class OrganizationFlowTests
 
         switched.User.OrganizationId.ShouldBe(created.Id);
 
-        var me = await client.GetFromJsonAsync<UserDto>(Url("/api/v1/users/me"));
+        var me = await client.GetJsonAsync<UserDto>(Url("/api/v1/users/me"));
         me!.OrganizationId.ShouldBe(created.Id);
     }
 
@@ -151,13 +151,13 @@ public sealed class OrganizationFlowTests
         var (client, _) = await SignInAsync();
         var created = await CreateOrganizationAsync(client, UniqueName("Stark"));
 
-        var response = await client.PatchAsJsonAsync(
+        var response = await client.PatchJsonAsync(
             Url($"/api/v1/organizations/{created.Id}"),
             new RenameOrganizationRequest("Stark Industries"));
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        var renamed = (await response.Content.ReadFromJsonAsync<OrganizationDto>())!;
+        var renamed = (await response.Content.ReadJsonAsync<OrganizationDto>())!;
         renamed.Name.ShouldBe("Stark Industries");
         // The slug is the workspace's stable identifier; re-deriving it would break every link
         // holding the old one.
@@ -174,7 +174,7 @@ public sealed class OrganizationFlowTests
 
         var notMine = await CreateOrganizationAsync(theirs, UniqueName("Wayne"));
 
-        var response = await mine.PatchAsJsonAsync(
+        var response = await mine.PatchJsonAsync(
             Url($"/api/v1/organizations/{notMine.Id}"),
             new RenameOrganizationRequest("Mine Now"));
 
@@ -204,7 +204,7 @@ public sealed class OrganizationFlowTests
 
         response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
-        var remaining = await client.GetFromJsonAsync<List<OrganizationDto>>(Url("/api/v1/organizations"));
+        var remaining = await client.GetJsonAsync<List<OrganizationDto>>(Url("/api/v1/organizations"));
         remaining!.ShouldNotContain(organization => organization.Id == created.Id);
     }
 
@@ -249,13 +249,13 @@ public sealed class OrganizationFlowTests
     {
         var (client, _) = await SignInAsync();
 
-        var response = await client.PutAsJsonAsync(
+        var response = await client.PutJsonAsync(
             Url("/api/v1/organizations/current/settings"),
             new WorkspaceSettingsDto("Northwind HQ", MeetingVisibility.Private, RetentionPeriod.ThreeMonths));
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        var settings = await client.GetFromJsonAsync<WorkspaceSettingsDto>(
+        var settings = await client.GetJsonAsync<WorkspaceSettingsDto>(
             Url("/api/v1/organizations/current/settings"));
 
         settings!.Name.ShouldBe("Northwind HQ");
@@ -264,7 +264,7 @@ public sealed class OrganizationFlowTests
 
         // The workspace's display name follows its settings name — two editable names for one
         // workspace read as a bug the first time they disagree.
-        var organizations = await client.GetFromJsonAsync<List<OrganizationDto>>(Url("/api/v1/organizations"));
+        var organizations = await client.GetJsonAsync<List<OrganizationDto>>(Url("/api/v1/organizations"));
         organizations!.Single(organization => organization.IsCurrent).Name.ShouldBe("Northwind HQ");
     }
 
@@ -273,7 +273,7 @@ public sealed class OrganizationFlowTests
     {
         var (client, _) = await SignInAsync();
 
-        var response = await client.PutAsJsonAsync(
+        var response = await client.PutJsonAsync(
             Url("/api/v1/organizations/current/settings"),
             new { name = "Northwind", defaultVisibility = "workspace", retention = "eternity" });
 
@@ -299,7 +299,7 @@ public sealed class OrganizationFlowTests
         var (joined, joinedSession) = await SignInAsync(invitee);
 
         // They land in their own personal workspace, with the invited one available to switch to.
-        var organizations = await joined.GetFromJsonAsync<List<OrganizationDto>>(Url("/api/v1/organizations"));
+        var organizations = await joined.GetJsonAsync<List<OrganizationDto>>(Url("/api/v1/organizations"));
         organizations!.Count.ShouldBe(2);
 
         var invited = organizations.Single(organization => organization.Id == adminSession.User.OrganizationId);
@@ -312,7 +312,7 @@ public sealed class OrganizationFlowTests
         joinedSession.User.Id.ShouldNotBe(adminSession.User.Id);
 
         // And the invitation is settled rather than left pending in the admin's list forever.
-        var invitations = await admin.GetFromJsonAsync<List<InvitationDto>>(Url("/api/v1/invitations"));
+        var invitations = await admin.GetJsonAsync<List<InvitationDto>>(Url("/api/v1/invitations"));
         invitations!.Single(row => row.Id == invitation.Id).Status.ShouldBe(InvitationStatus.Accepted);
     }
 
@@ -324,7 +324,7 @@ public sealed class OrganizationFlowTests
 
         await InviteAsync(admin, invitee, UserRole.Member);
 
-        var second = await admin.PostAsJsonAsync(
+        var second = await admin.PostJsonAsync(
             Url("/api/v1/invitations"),
             new InviteMemberRequest(invitee, UserRole.Member));
 
@@ -336,7 +336,7 @@ public sealed class OrganizationFlowTests
     {
         var (admin, session) = await SignInAsync();
 
-        var response = await admin.PostAsJsonAsync(
+        var response = await admin.PostJsonAsync(
             Url("/api/v1/invitations"),
             new InviteMemberRequest(session.User.Email, UserRole.Member));
 
@@ -348,7 +348,7 @@ public sealed class OrganizationFlowTests
     {
         var (admin, _) = await SignInAsync();
 
-        var response = await admin.PostAsJsonAsync(
+        var response = await admin.PostJsonAsync(
             Url("/api/v1/invitations"),
             new InviteMemberRequest(UniqueEmail(), UserRole.Owner));
 
@@ -372,7 +372,7 @@ public sealed class OrganizationFlowTests
         var (joined, _) = await SignInAsync(invitee);
 
         // Their own personal workspace only.
-        var organizations = await joined.GetFromJsonAsync<List<OrganizationDto>>(Url("/api/v1/organizations"));
+        var organizations = await joined.GetJsonAsync<List<OrganizationDto>>(Url("/api/v1/organizations"));
         organizations!.Count.ShouldBe(1);
     }
 
@@ -384,7 +384,7 @@ public sealed class OrganizationFlowTests
 
         await InviteAsync(theirs, UniqueEmail(), UserRole.Member);
 
-        var visible = await mine.GetFromJsonAsync<List<InvitationDto>>(Url("/api/v1/invitations"));
+        var visible = await mine.GetJsonAsync<List<InvitationDto>>(Url("/api/v1/invitations"));
 
         visible!.ShouldBeEmpty();
     }
@@ -398,15 +398,15 @@ public sealed class OrganizationFlowTests
     {
         var (admin, _, member, memberId) = await WorkspaceWithMemberAsync();
 
-        var response = await admin.PatchAsJsonAsync(
+        var response = await admin.PatchJsonAsync(
             Url($"/api/v1/organizations/current/members/{memberId}"),
             new UpdateMemberRequest(UserRole.Admin, null));
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        (await response.Content.ReadFromJsonAsync<UserDto>())!.Role.ShouldBe(UserRole.Admin);
+        (await response.Content.ReadJsonAsync<UserDto>())!.Role.ShouldBe(UserRole.Admin);
 
         // Their own workspace is untouched: they are still its owner.
-        var theirs = await member.GetFromJsonAsync<List<OrganizationDto>>(Url("/api/v1/organizations"));
+        var theirs = await member.GetJsonAsync<List<OrganizationDto>>(Url("/api/v1/organizations"));
         theirs!.Single(organization => organization.IsCurrent).Role.ShouldBe(UserRole.Owner);
     }
 
@@ -415,7 +415,7 @@ public sealed class OrganizationFlowTests
     {
         var (admin, session) = await SignInAsync();
 
-        var response = await admin.PatchAsJsonAsync(
+        var response = await admin.PatchJsonAsync(
             Url($"/api/v1/organizations/current/members/{session.User.Id}"),
             new UpdateMemberRequest(UserRole.Member, null));
 
@@ -429,7 +429,7 @@ public sealed class OrganizationFlowTests
     {
         var (owner, _, member, memberId) = await WorkspaceWithMemberAsync();
 
-        await owner.PatchAsJsonAsync(
+        await owner.PatchJsonAsync(
             Url($"/api/v1/organizations/current/members/{memberId}"),
             new UpdateMemberRequest(UserRole.Admin, null));
 
@@ -437,7 +437,7 @@ public sealed class OrganizationFlowTests
         // through; the handler's escalation guard is what stops it.
         await SwitchToInvitedWorkspaceAsync(member);
 
-        var response = await member.PatchAsJsonAsync(
+        var response = await member.PatchJsonAsync(
             Url($"/api/v1/organizations/current/members/{memberId}"),
             new UpdateMemberRequest(UserRole.Owner, null));
 
@@ -449,7 +449,7 @@ public sealed class OrganizationFlowTests
     {
         var (admin, adminSession, member, memberId) = await WorkspaceWithMemberAsync();
 
-        var suspended = await admin.PatchAsJsonAsync(
+        var suspended = await admin.PatchJsonAsync(
             Url($"/api/v1/organizations/current/members/{memberId}"),
             new UpdateMemberRequest(null, UserStatus.Suspended));
 
@@ -458,7 +458,7 @@ public sealed class OrganizationFlowTests
         // Suspension is workspace-scoped: their own personal workspace is untouched, which is the
         // point — a free workspace must not be a lever for disabling somebody's real account.
         var organizations =
-            (await member.GetFromJsonAsync<List<OrganizationDto>>(Url("/api/v1/organizations")))!;
+            (await member.GetJsonAsync<List<OrganizationDto>>(Url("/api/v1/organizations")))!;
         organizations.ShouldNotContain(row => row.Id == adminSession.User.OrganizationId);
         organizations.Count.ShouldBe(1);
     }
@@ -468,7 +468,7 @@ public sealed class OrganizationFlowTests
     {
         var (owner, ownerSession, member, memberId) = await WorkspaceWithMemberAsync();
 
-        await owner.PatchAsJsonAsync(
+        await owner.PatchJsonAsync(
             Url($"/api/v1/organizations/current/members/{memberId}"),
             new UpdateMemberRequest(UserRole.Admin, null));
 
@@ -476,7 +476,7 @@ public sealed class OrganizationFlowTests
 
         // The escalation the role policy cannot see: RequireAdmin is satisfied, and without the
         // rank check the new admin could suspend the owner and take the workspace.
-        var response = await member.PatchAsJsonAsync(
+        var response = await member.PatchJsonAsync(
             Url($"/api/v1/organizations/current/members/{ownerSession.User.Id}"),
             new UpdateMemberRequest(null, UserStatus.Suspended));
 
@@ -490,7 +490,7 @@ public sealed class OrganizationFlowTests
         // before the first steps down, which is the order the last-owner invariant requires.
         var (owner, ownerSession, member, memberId) = await WorkspaceWithMemberAsync();
 
-        var promoted = await owner.PatchAsJsonAsync(
+        var promoted = await owner.PatchJsonAsync(
             Url($"/api/v1/organizations/current/members/{memberId}"),
             new UpdateMemberRequest(UserRole.Owner, null));
 
@@ -498,12 +498,12 @@ public sealed class OrganizationFlowTests
 
         await SwitchToInvitedWorkspaceAsync(member);
 
-        var demoted = await member.PatchAsJsonAsync(
+        var demoted = await member.PatchJsonAsync(
             Url($"/api/v1/organizations/current/members/{ownerSession.User.Id}"),
             new UpdateMemberRequest(UserRole.Admin, null));
 
         demoted.StatusCode.ShouldBe(HttpStatusCode.OK);
-        (await demoted.Content.ReadFromJsonAsync<UserDto>())!.Role.ShouldBe(UserRole.Admin);
+        (await demoted.Content.ReadJsonAsync<UserDto>())!.Role.ShouldBe(UserRole.Admin);
     }
 
     [Fact]
@@ -516,7 +516,7 @@ public sealed class OrganizationFlowTests
 
         response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
-        var organizations = await member.GetFromJsonAsync<List<OrganizationDto>>(Url("/api/v1/organizations"));
+        var organizations = await member.GetJsonAsync<List<OrganizationDto>>(Url("/api/v1/organizations"));
         organizations!.ShouldNotContain(row => row.Id == adminSession.User.OrganizationId);
     }
 
@@ -525,13 +525,13 @@ public sealed class OrganizationFlowTests
     {
         var (admin, _, member, _) = await WorkspaceWithMemberAsync();
 
-        var members = await admin.GetFromJsonAsync<List<UserDto>>(
+        var members = await admin.GetJsonAsync<List<UserDto>>(
             Url("/api/v1/organizations/current/members"));
 
         members!.Count.ShouldBe(2);
 
         // The invitee's own personal workspace has exactly one member: them.
-        var theirs = await member.GetFromJsonAsync<List<UserDto>>(
+        var theirs = await member.GetJsonAsync<List<UserDto>>(
             Url("/api/v1/organizations/current/members"));
 
         theirs!.Count.ShouldBe(1);
@@ -562,7 +562,7 @@ public sealed class OrganizationFlowTests
     /// </summary>
     private static async Task SwitchToInvitedWorkspaceAsync(HttpClient client)
     {
-        var organizations = await client.GetFromJsonAsync<List<OrganizationDto>>(Url("/api/v1/organizations"));
+        var organizations = await client.GetJsonAsync<List<OrganizationDto>>(Url("/api/v1/organizations"));
         var target = organizations!.First(organization => !organization.IsCurrent);
 
         await SwitchAsync(client, target.Id);
@@ -570,24 +570,24 @@ public sealed class OrganizationFlowTests
 
     private static async Task<OrganizationDto> CreateOrganizationAsync(HttpClient client, string name)
     {
-        var response = await client.PostAsJsonAsync(
+        var response = await client.PostJsonAsync(
             Url("/api/v1/organizations"),
             new CreateOrganizationRequest(name));
 
         response.StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        return (await response.Content.ReadFromJsonAsync<OrganizationDto>())!;
+        return (await response.Content.ReadJsonAsync<OrganizationDto>())!;
     }
 
     private static async Task<InvitationDto> InviteAsync(HttpClient client, string email, UserRole role)
     {
-        var response = await client.PostAsJsonAsync(
+        var response = await client.PostJsonAsync(
             Url("/api/v1/invitations"),
             new InviteMemberRequest(email, role));
 
         response.StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        return (await response.Content.ReadFromJsonAsync<InvitationDto>())!;
+        return (await response.Content.ReadJsonAsync<InvitationDto>())!;
     }
 
     private static async Task<AuthResponse> SwitchAsync(HttpClient client, Guid organizationId)
@@ -596,7 +596,7 @@ public sealed class OrganizationFlowTests
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        var switched = (await response.Content.ReadFromJsonAsync<AuthResponse>())!;
+        var switched = (await response.Content.ReadJsonAsync<AuthResponse>())!;
 
         // The caller keeps using the same client, so it has to carry the new token from here on.
         client.DefaultRequestHeaders.Authorization =
@@ -618,7 +618,7 @@ public sealed class OrganizationFlowTests
 
         if (reuseEmailOf is not null)
         {
-            var existing = await reuseEmailOf.GetFromJsonAsync<UserDto>(Url("/api/v1/users/me"));
+            var existing = await reuseEmailOf.GetJsonAsync<UserDto>(Url("/api/v1/users/me"));
             address = existing!.Email;
         }
 
@@ -627,13 +627,13 @@ public sealed class OrganizationFlowTests
 
         var client = _fixture.CreateClient(new() { HandleCookies = false });
 
-        var response = await client.PostAsJsonAsync(
+        var response = await client.PostJsonAsync(
             Url("/api/v1/auth/google"),
             new GoogleSignInRequest(idToken));
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        var session = (await response.Content.ReadFromJsonAsync<AuthResponse>())!;
+        var session = (await response.Content.ReadJsonAsync<AuthResponse>())!;
         client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", session.AccessToken);
 
@@ -648,7 +648,7 @@ public sealed class OrganizationFlowTests
         var response = await client.SendAsync(request);
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        return (await response.Content.ReadFromJsonAsync<AuthResponse>())!;
+        return (await response.Content.ReadJsonAsync<AuthResponse>())!;
     }
 
     private static string ReadRefreshToken(HttpResponseMessage response)

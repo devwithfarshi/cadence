@@ -25,7 +25,7 @@ public sealed class UserFlowTests
     {
         var (client, session) = await SignInAsync();
 
-        var me = await client.GetFromJsonAsync<UserDto>(Url("/api/v1/users/me"));
+        var me = await client.GetJsonAsync<UserDto>(Url("/api/v1/users/me"));
 
         me.ShouldNotBeNull();
         me.Email.ShouldBe(session.User.Email);
@@ -49,13 +49,13 @@ public sealed class UserFlowTests
     {
         var (client, _) = await SignInAsync();
 
-        var response = await client.PatchAsJsonAsync(
+        var response = await client.PatchJsonAsync(
             Url("/api/v1/users/me"),
             new UpdateProfileRequest("Alex R.", "Staff Engineer", "Platform", "Europe/London", null));
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        var updated = await client.GetFromJsonAsync<UserDto>(Url("/api/v1/users/me"));
+        var updated = await client.GetJsonAsync<UserDto>(Url("/api/v1/users/me"));
         updated!.Name.ShouldBe("Alex R.");
         updated.JobTitle.ShouldBe("Staff Engineer");
         updated.Timezone.ShouldBe("Europe/London");
@@ -68,7 +68,7 @@ public sealed class UserFlowTests
         // with nothing pointing back at where it came from.
         var (client, _) = await SignInAsync();
 
-        var response = await client.PatchAsJsonAsync(
+        var response = await client.PatchJsonAsync(
             Url("/api/v1/users/me"),
             new UpdateProfileRequest("Alex", "", "", "Mars/Olympus_Mons", null));
 
@@ -82,11 +82,11 @@ public sealed class UserFlowTests
         // one changes nothing rather than being silently accepted.
         var (client, session) = await SignInAsync();
 
-        await client.PatchAsJsonAsync(
+        await client.PatchJsonAsync(
             Url("/api/v1/users/me"),
             new { name = "Alex", jobTitle = "", department = "", timezone = "UTC", email = "attacker@evil.io" });
 
-        var updated = await client.GetFromJsonAsync<UserDto>(Url("/api/v1/users/me"));
+        var updated = await client.GetJsonAsync<UserDto>(Url("/api/v1/users/me"));
         updated!.Email.ShouldBe(session.User.Email);
     }
 
@@ -95,7 +95,7 @@ public sealed class UserFlowTests
     {
         var (client, _) = await SignInAsync();
 
-        var preferences = await client.GetFromJsonAsync<PreferencesDto>(Url("/api/v1/users/me/preferences"));
+        var preferences = await client.GetJsonAsync<PreferencesDto>(Url("/api/v1/users/me/preferences"));
 
         preferences.ShouldNotBeNull();
         // The model must never silently assign work to a colleague.
@@ -110,7 +110,7 @@ public sealed class UserFlowTests
         // The real point of this test: the owned value objects and their primitive collections
         // actually persist and read back. That is where the last set of EF defects lived.
         var (client, _) = await SignInAsync();
-        var original = await client.GetFromJsonAsync<PreferencesDto>(Url("/api/v1/users/me/preferences"));
+        var original = await client.GetJsonAsync<PreferencesDto>(Url("/api/v1/users/me/preferences"));
 
         var updated = original! with
         {
@@ -124,10 +124,10 @@ public sealed class UserFlowTests
             Ai = original.Ai with { SummaryLength = SummaryLength.Detailed, OutputLanguage = "de" },
         };
 
-        (await client.PutAsJsonAsync(Url("/api/v1/users/me/preferences"), updated))
+        (await client.PutJsonAsync(Url("/api/v1/users/me/preferences"), updated))
             .StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        var reloaded = await client.GetFromJsonAsync<PreferencesDto>(Url("/api/v1/users/me/preferences"));
+        var reloaded = await client.GetJsonAsync<PreferencesDto>(Url("/api/v1/users/me/preferences"));
 
         reloaded!.Theme.ShouldBe(ThemeMode.Dark);
         reloaded.Density.ShouldBe(UiDensity.Compact);
@@ -143,9 +143,9 @@ public sealed class UserFlowTests
     public async Task Preferences_RejectAnEmptyLanguage()
     {
         var (client, _) = await SignInAsync();
-        var original = await client.GetFromJsonAsync<PreferencesDto>(Url("/api/v1/users/me/preferences"));
+        var original = await client.GetJsonAsync<PreferencesDto>(Url("/api/v1/users/me/preferences"));
 
-        var response = await client.PutAsJsonAsync(
+        var response = await client.PutJsonAsync(
             Url("/api/v1/users/me/preferences"),
             original! with { Language = "" });
 
@@ -161,7 +161,7 @@ public sealed class UserFlowTests
         var first = await RefreshAsync(client, refreshToken);
         await RefreshAsync(client, first);
 
-        var sessions = await client.GetFromJsonAsync<IReadOnlyList<SessionDto>>(
+        var sessions = await client.GetJsonAsync<IReadOnlyList<SessionDto>>(
             Url("/api/v1/users/me/sessions"));
 
         sessions.ShouldNotBeNull();
@@ -177,7 +177,7 @@ public sealed class UserFlowTests
         // A second sign-in for the same person opens a second session.
         var (_, _, _) = await SignInWithCookieAsync(reuseEmailOf: client);
 
-        var sessions = await client.GetFromJsonAsync<IReadOnlyList<SessionDto>>(
+        var sessions = await client.GetJsonAsync<IReadOnlyList<SessionDto>>(
             Url("/api/v1/users/me/sessions"));
 
         sessions!.Count(session => session.IsCurrent).ShouldBe(1);
@@ -202,7 +202,7 @@ public sealed class UserFlowTests
     public async Task RevokingASession_StopsItsRefreshTokenWorking()
     {
         var (client, _, refreshToken) = await SignInWithCookieAsync();
-        var sessions = await client.GetFromJsonAsync<IReadOnlyList<SessionDto>>(
+        var sessions = await client.GetJsonAsync<IReadOnlyList<SessionDto>>(
             Url("/api/v1/users/me/sessions"));
 
         (await client.DeleteAsync(Url($"/api/v1/users/me/sessions/{sessions![0].Id}")))
@@ -243,7 +243,7 @@ public sealed class UserFlowTests
     {
         var (client, session) = await SignInAsync();
 
-        var members = await client.GetFromJsonAsync<IReadOnlyList<UserDto>>(Url("/api/v1/users"));
+        var members = await client.GetJsonAsync<IReadOnlyList<UserDto>>(Url("/api/v1/users"));
 
         // A personal workspace has exactly one member — and crucially not every user in the
         // database, which is what a query against the global User table alone would return.
@@ -254,13 +254,13 @@ public sealed class UserFlowTests
     public async Task TheDirectorySearchIsCaseInsensitive()
     {
         var (client, _) = await SignInAsync();
-        await client.PatchAsJsonAsync(
+        await client.PatchJsonAsync(
             Url("/api/v1/users/me"),
             new UpdateProfileRequest("Priya Nair", "Designer", "Product", "UTC", null));
 
-        var hit = await client.GetFromJsonAsync<IReadOnlyList<UserDto>>(
+        var hit = await client.GetJsonAsync<IReadOnlyList<UserDto>>(
             Url("/api/v1/users?search=PRIYA"));
-        var miss = await client.GetFromJsonAsync<IReadOnlyList<UserDto>>(
+        var miss = await client.GetJsonAsync<IReadOnlyList<UserDto>>(
             Url("/api/v1/users?search=nobody-by-that-name"));
 
         hit.ShouldHaveSingleItem();
@@ -271,11 +271,11 @@ public sealed class UserFlowTests
     {
         using var client = _fixture.CreateClient(new() { HandleCookies = false });
         var refreshed = await RefreshRawAsync(client, refreshToken);
-        var auth = await refreshed.Content.ReadFromJsonAsync<AuthResponse>();
+        var auth = await refreshed.Content.ReadJsonAsync<AuthResponse>();
 
         client.DefaultRequestHeaders.Authorization = new("Bearer", auth!.AccessToken);
 
-        return (await client.GetFromJsonAsync<IReadOnlyList<SessionDto>>(
+        return (await client.GetJsonAsync<IReadOnlyList<SessionDto>>(
             Url("/api/v1/users/me/sessions")))!;
     }
 
@@ -292,7 +292,7 @@ public sealed class UserFlowTests
 
         if (reuseEmailOf is not null)
         {
-            var existing = await reuseEmailOf.GetFromJsonAsync<UserDto>(Url("/api/v1/users/me"));
+            var existing = await reuseEmailOf.GetJsonAsync<UserDto>(Url("/api/v1/users/me"));
             address = existing!.Email;
         }
 
@@ -303,13 +303,13 @@ public sealed class UserFlowTests
 
         var client = _fixture.CreateClient(new() { HandleCookies = false });
 
-        var response = await client.PostAsJsonAsync(
+        var response = await client.PostJsonAsync(
             Url("/api/v1/auth/google"),
             new GoogleSignInRequest(idToken));
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        var session = (await response.Content.ReadFromJsonAsync<AuthResponse>())!;
+        var session = (await response.Content.ReadJsonAsync<AuthResponse>())!;
         client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", session.AccessToken);
 
