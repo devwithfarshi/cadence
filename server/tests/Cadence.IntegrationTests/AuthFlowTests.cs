@@ -11,7 +11,8 @@ namespace Cadence.IntegrationTests;
 /// <summary>
 /// The sign-in, rotation and reuse-detection path, end to end against a real database.
 /// </summary>
-public sealed class AuthFlowTests : IClassFixture<AuthFixture>
+[Collection(DatabaseCollection.Name)]
+public sealed class AuthFlowTests
 {
     private const string RefreshCookie = "cadence_refresh";
 

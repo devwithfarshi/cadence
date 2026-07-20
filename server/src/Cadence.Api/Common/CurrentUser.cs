@@ -27,6 +27,8 @@ public sealed class CurrentUser(IHttpContextAccessor accessor) : ICurrentUser
 
     public string? Email => Principal?.FindFirstValue(ClaimTypes.Email);
 
+    public Guid? SessionId => ReadGuid(CadenceClaims.SessionId);
+
     public UserRole? Role =>
         Enum.TryParse<UserRole>(Principal?.FindFirstValue(CadenceClaims.Role), ignoreCase: true, out var role)
             ? role

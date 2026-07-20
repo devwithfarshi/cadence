@@ -25,6 +25,15 @@ public interface ICurrentUser
 
     string? Email { get; }
 
+    /// <summary>
+    /// The refresh-token family this request's token belongs to — i.e. which sign-in it is.
+    /// </summary>
+    /// <remarks>
+    /// Lets the sessions screen mark "this device" and lets "sign out everywhere else" exclude the
+    /// caller. Null for a token issued before the claim existed, or a non-interactive principal.
+    /// </remarks>
+    Guid? SessionId { get; }
+
     UserRole? Role { get; }
 
     bool IsAuthenticated { get; }

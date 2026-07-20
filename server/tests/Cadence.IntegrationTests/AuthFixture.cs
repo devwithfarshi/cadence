@@ -112,3 +112,19 @@ public sealed class FakeGoogleIdTokenValidator : IGoogleIdTokenValidator
     public Task<GoogleIdentity?> ValidateAsync(string idToken, CancellationToken cancellationToken = default) =>
         Task.FromResult(_identities.GetValueOrDefault(idToken));
 }
+
+/// <summary>
+/// Shares one fixture — and therefore one container and one host — across every test class that
+/// needs a database.
+/// </summary>
+/// <remarks>
+/// <c>IClassFixture</c> would build a fixture per class, and those classes run in parallel, so each
+/// suite would start its own Postgres at the same moment. That is slower and, on a loaded machine,
+/// flaky: a container that loses the race simply exits. A collection fixture also serialises the
+/// classes, so they cannot interfere through shared rows.
+/// </remarks>
+[CollectionDefinition(Name)]
+public sealed class DatabaseCollection : ICollectionFixture<AuthFixture>
+{
+    public const string Name = "database";
+}

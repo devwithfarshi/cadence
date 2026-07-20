@@ -94,6 +94,7 @@ try
     }
 
     app.MapAuthEndpoints();
+    app.MapUserEndpoints();
 
     MapHealthEndpoints(app);
 

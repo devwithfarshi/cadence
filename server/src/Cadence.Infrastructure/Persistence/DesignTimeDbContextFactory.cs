@@ -51,6 +51,8 @@ public sealed class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<Cad
 
         public string? Email => null;
 
+        public Guid? SessionId => null;
+
         public UserRole? Role => null;
 
         public bool IsAuthenticated => false;
