@@ -17,9 +17,8 @@ internal sealed class ActionItemConfiguration : IEntityTypeConfiguration<ActionI
         builder.Property(item => item.Title).HasMaxLength(300).IsRequired();
         builder.Property(item => item.Description).IsRequired();
 
-        builder.Property<List<string>>("_tags")
+        builder.PrimitiveCollection<List<string>>("_tags")
             .HasColumnName("tags")
-            .HasColumnType("text[]")
             .IsRequired();
 
         builder.Ignore(item => item.Tags);
@@ -61,9 +60,8 @@ internal sealed class DocumentConfiguration : IEntityTypeConfiguration<Document>
         builder.Property(document => document.Url).HasMaxLength(2048).IsRequired();
         builder.Property(document => document.Excerpt).IsRequired();
 
-        builder.Property<List<string>>("_tags")
+        builder.PrimitiveCollection<List<string>>("_tags")
             .HasColumnName("tags")
-            .HasColumnType("text[]")
             .IsRequired();
 
         builder.Ignore(document => document.Tags);
@@ -93,9 +91,8 @@ internal sealed class KnowledgeItemConfiguration : IEntityTypeConfiguration<Know
         builder.Property(item => item.Excerpt).IsRequired();
         builder.Property(item => item.SourceUrl).HasMaxLength(2048);
 
-        builder.Property<List<string>>("_tags")
+        builder.PrimitiveCollection<List<string>>("_tags")
             .HasColumnName("tags")
-            .HasColumnType("text[]")
             .IsRequired();
 
         builder.Ignore(item => item.Tags);
@@ -113,9 +110,8 @@ internal sealed class CommentConfiguration : IEntityTypeConfiguration<Comment>
     {
         builder.Property(comment => comment.Body).IsRequired();
 
-        builder.Property<List<Guid>>("_mentions")
+        builder.PrimitiveCollection<List<Guid>>("_mentions")
             .HasColumnName("mentions")
-            .HasColumnType("uuid[]")
             .IsRequired();
 
         builder.Ignore(comment => comment.Mentions);

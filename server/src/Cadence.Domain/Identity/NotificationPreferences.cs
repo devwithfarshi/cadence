@@ -22,17 +22,19 @@ public sealed class NotificationPreferences : ValueObject
         Email = null!;
     }
 
-    private NotificationPreferences(
-        IReadOnlyCollection<NotificationKind> inApp,
-        IReadOnlyCollection<NotificationKind> email)
+    private NotificationPreferences(NotificationKind[] inApp, NotificationKind[] email)
     {
         InApp = inApp;
         Email = email;
     }
 
-    public IReadOnlyCollection<NotificationKind> InApp { get; private set; }
+    // Arrays, not IReadOnlyCollection. EF maps a primitive collection only when the declared type
+    // is an array or an IList — and a C# collection expression produces a compiler-generated
+    // read-only array that satisfies neither. The model still builds; the failure appears only when
+    // a row is written.
+    public NotificationKind[] InApp { get; private set; }
 
-    public IReadOnlyCollection<NotificationKind> Email { get; private set; }
+    public NotificationKind[] Email { get; private set; }
 
     public static NotificationPreferences Default() =>
         new(
@@ -43,10 +45,12 @@ public sealed class NotificationPreferences : ValueObject
                 NotificationKind.Mention,
             ]);
 
+    // The collection expression above targets NotificationKind[], so it produces a real array.
+
     public static NotificationPreferences Create(
         IEnumerable<NotificationKind> inApp,
         IEnumerable<NotificationKind> email) =>
-        new([.. inApp.Distinct()], [.. email.Distinct()]);
+        new(inApp.Distinct().ToArray(), email.Distinct().ToArray());
 
     public bool Allows(NotificationKind kind, bool viaEmail) =>
         viaEmail ? Email.Contains(kind) : InApp.Contains(kind);

@@ -8,6 +8,9 @@ namespace Cadence.Domain.Identity;
 /// </summary>
 public sealed class Organization : AggregateRoot, ISoftDeletable
 {
+    /// <summary>Trailing hex digits of the id appended to a personal workspace's slug.</summary>
+    private const int DiscriminatorLength = 6;
+
     private readonly List<OrganizationMember> _members = [];
 
     private Organization()
@@ -43,12 +46,44 @@ public sealed class Organization : AggregateRoot, ISoftDeletable
 
     public IReadOnlyCollection<OrganizationMember> Members => _members.AsReadOnly();
 
+    /// <summary>
+    /// Creates a workspace with a clean slug derived from its name.
+    /// </summary>
+    /// <remarks>
+    /// The slug may collide with an existing one, and the partial unique index is what says so. That
+    /// is deliberate for a deliberately-named workspace: someone typing "Northwind" should be told
+    /// the name is taken, not silently given "northwind-a91f4c".
+    /// </remarks>
     public static Organization Create(string name, Guid ownerId)
     {
         DomainException.ThrowIf(string.IsNullOrWhiteSpace(name), "Organization name is required.");
 
         var organization = new Organization(name.Trim(), Slugify(name), ownerId);
         organization.AddMember(ownerId, UserRole.Owner);
+        return organization;
+    }
+
+    /// <summary>
+    /// Creates the personal workspace a user gets on first sign-in, with a slug that cannot collide.
+    /// </summary>
+    /// <remarks>
+    /// Names repeat — two people called Alex Rivera both provision "Alex Rivera's workspace" — and
+    /// without a discriminator the second sign-up hits the unique index and fails. Here a collision
+    /// is not worth telling anyone about, so six hex digits of the id are appended. The index remains
+    /// the backstop.
+    /// <para>
+    /// The <b>last</b> six, not the first. A UUIDv7 leads with a 48-bit timestamp, so its opening
+    /// digits are identical for everything created in the same stretch of time — a prefix would
+    /// reproduce exactly the collision it is meant to prevent.
+    /// </para>
+    /// </remarks>
+    public static Organization CreatePersonal(string name, Guid ownerId)
+    {
+        var organization = Create(name, ownerId);
+
+        var discriminator = organization.Id.ToString("n")[^DiscriminatorLength..];
+        organization.Slug = $"{organization.Slug}-{discriminator}";
+
         return organization;
     }
 

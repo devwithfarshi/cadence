@@ -27,6 +27,38 @@ public class OrganizationTests
     }
 
     [Fact]
+    public void TwoPersonalWorkspacesWithTheSameName_GetDifferentSlugs()
+    {
+        // Names repeat. Without a discriminator the second person called Alex Rivera hits the unique
+        // index on first sign-in and gets a 500 instead of an account.
+        var first = Organization.CreatePersonal("Alex Rivera's workspace", Guid.CreateVersion7());
+        var second = Organization.CreatePersonal("Alex Rivera's workspace", Guid.CreateVersion7());
+
+        first.Slug.ShouldNotBe(second.Slug);
+    }
+
+    [Fact]
+    public void PersonalSlugsStayDistinct_EvenWhenCreatedBackToBack()
+    {
+        // The discriminator comes from the *end* of the id. A UUIDv7 leads with a 48-bit timestamp,
+        // so a prefix is identical for everything created in the same stretch of time — which would
+        // reproduce exactly the collision it is meant to prevent.
+        var slugs = Enumerable.Range(0, 200)
+            .Select(_ => Organization.CreatePersonal("Alex Rivera's workspace", Guid.CreateVersion7()).Slug)
+            .ToList();
+
+        slugs.Distinct().Count().ShouldBe(slugs.Count);
+    }
+
+    [Fact]
+    public void ADeliberatelyNamedWorkspace_KeepsACleanSlug()
+    {
+        // Someone typing "Northwind" should be told the name is taken, not silently handed
+        // "northwind-a91f4c". The unique index is what tells them.
+        Organization.Create("Northwind Labs", OwnerId).Slug.ShouldBe("northwind-labs");
+    }
+
+    [Fact]
     public void TheLastOwner_CannotBeDemoted()
     {
         // Without this, an admin could strand a workspace with nobody able to administer it.

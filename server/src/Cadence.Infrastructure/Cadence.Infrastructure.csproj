@@ -4,6 +4,8 @@
 
   <ItemGroup>
     <PackageReference Include="EFCore.NamingConventions" />
+    <PackageReference Include="Google.Apis.Auth" />
+    <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" />
     <!-- IDesignTimeDbContextFactory lives here, so `dotnet ef` can scaffold migrations without
          booting the app. It ships no runtime behaviour of its own. -->

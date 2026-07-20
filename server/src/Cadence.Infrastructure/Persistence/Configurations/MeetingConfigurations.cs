@@ -14,9 +14,8 @@ internal sealed class MeetingConfiguration : IEntityTypeConfiguration<Meeting>
         builder.Property(meeting => meeting.Description).IsRequired();
         builder.Property(meeting => meeting.MeetingUrl).HasMaxLength(2048);
 
-        builder.Property<List<string>>("_tags")
+        builder.PrimitiveCollection<List<string>>("_tags")
             .HasColumnName("tags")
-            .HasColumnType("text[]")
             .IsRequired();
 
         builder.Ignore(meeting => meeting.Tags);

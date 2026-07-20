@@ -139,6 +139,13 @@ public sealed class CadenceApiFactory : WebApplicationFactory<Program>
                 // CorsOptions requires at least one origin and validates on start, so the host
                 // would refuse to boot without this — which is the intended behaviour.
                 ["Cors:AllowedOrigins:0"] = "http://localhost:3000",
+
+                // Likewise for auth: JwtOptions rejects a key under 32 characters and
+                // GoogleAuthOptions requires a client id, both at startup rather than at first use.
+                ["Jwt:SigningKey"] = "smoke-test-signing-key-that-is-long-enough-to-pass",
+                ["Jwt:Issuer"] = "cadence-test",
+                ["Jwt:Audience"] = "cadence-test-client",
+                ["Google:ClientId"] = "smoke-test.apps.googleusercontent.com",
             }));
 
         return base.CreateHost(builder);

@@ -13,7 +13,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Cadence.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(CadenceDbContext))]
-    [Migration("20260719232918_InitialSchema")]
+    [Migration("20260720102013_InitialSchema")]
     partial class InitialSchema
     {
         /// <inheritdoc />
@@ -378,7 +378,7 @@ namespace Cadence.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("updated_by");
 
-                    b.Property<string[]>("_scopes")
+                    b.PrimitiveCollection<string[]>("_scopes")
                         .IsRequired()
                         .HasColumnType("text[]")
                         .HasColumnName("scopes");
@@ -1888,12 +1888,12 @@ namespace Cadence.Infrastructure.Persistence.Migrations
                                 .HasColumnType("uuid")
                                 .HasColumnName("id");
 
-                            b1.Property<string[]>("Email")
+                            b1.PrimitiveCollection<string[]>("Email")
                                 .IsRequired()
                                 .HasColumnType("text[]")
                                 .HasColumnName("notifications_email");
 
-                            b1.Property<string[]>("InApp")
+                            b1.PrimitiveCollection<string[]>("InApp")
                                 .IsRequired()
                                 .HasColumnType("text[]")
                                 .HasColumnName("notifications_in_app");

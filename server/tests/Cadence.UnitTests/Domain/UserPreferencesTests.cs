@@ -61,8 +61,8 @@ public class UserPreferencesTests
         // Anything that sends mail defaults to off; a new NotificationKind must be opted into.
         var preferences = Create();
 
-        preferences.Notifications.Email.Count
-            .ShouldBeLessThan(preferences.Notifications.InApp.Count);
+        preferences.Notifications.Email.Length
+            .ShouldBeLessThan(preferences.Notifications.InApp.Length);
         preferences.Notifications.Allows(NotificationKind.MeetingReminder, viaEmail: false).ShouldBeTrue();
         preferences.Notifications.Allows(NotificationKind.MeetingReminder, viaEmail: true).ShouldBeFalse();
     }

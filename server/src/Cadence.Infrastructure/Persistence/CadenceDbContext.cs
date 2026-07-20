@@ -31,7 +31,7 @@ namespace Cadence.Infrastructure.Persistence;
 public sealed class CadenceDbContext(
     DbContextOptions<CadenceDbContext> options,
     ICurrentUser currentUser)
-    : DbContext(options), IUnitOfWork
+    : DbContext(options), IUnitOfWork, ICadenceDbContext
 {
     public DbSet<User> Users => Set<User>();
 

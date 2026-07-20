@@ -161,10 +161,12 @@ internal sealed class ApiKeyConfiguration : IEntityTypeConfiguration<ApiKey>
         // Authentication looks a key up by hash on every API-key request.
         builder.HasIndex(key => key.KeyHash).IsUnique();
 
-        builder.Property<List<ApiKeyScope>>("_scopes")
+        // PrimitiveCollection with an ElementType conversion, not Property with a whole-collection
+        // converter. EF maps a primitive collection element by element; handing it a converter for
+        // the entire collection builds a model fine and then fails on the first write.
+        builder.PrimitiveCollection<List<ApiKeyScope>>("_scopes")
             .HasColumnName("scopes")
-            .HasConversion(new SnakeCaseEnumListConverter<ApiKeyScope>())
-            .HasColumnType("text[]")
+            .ElementType(element => element.HasConversion(new SnakeCaseEnumConverter<ApiKeyScope>()))
             .IsRequired();
 
         builder.Ignore(key => key.Scopes);
@@ -186,14 +188,12 @@ internal sealed class UserPreferencesConfiguration : IEntityTypeConfiguration<Us
             .HasForeignKey(preferences => preferences.UserId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        builder.Property<List<Guid>>("_recentMeetingIds")
+        builder.PrimitiveCollection<List<Guid>>("_recentMeetingIds")
             .HasColumnName("recent_meeting_ids")
-            .HasColumnType("uuid[]")
             .IsRequired();
 
-        builder.Property<List<string>>("_recentSearches")
+        builder.PrimitiveCollection<List<string>>("_recentSearches")
             .HasColumnName("recent_searches")
-            .HasColumnType("text[]")
             .IsRequired();
 
         builder.Ignore(preferences => preferences.RecentMeetingIds);
@@ -201,20 +201,14 @@ internal sealed class UserPreferencesConfiguration : IEntityTypeConfiguration<Us
 
         builder.OwnsOne(preferences => preferences.Notifications, notifications =>
         {
-            notifications.Property(value => value.InApp)
+            notifications.PrimitiveCollection(value => value.InApp)
                 .HasColumnName("notifications_in_app")
-                .HasConversion(
-                    kinds => kinds.Select(SnakeCaseEnumConverter<NotificationKind>.ToSnakeCase).ToArray(),
-                    values => ParseKinds(values))
-                .HasColumnType("text[]")
+                .ElementType(element => element.HasConversion(new SnakeCaseEnumConverter<NotificationKind>()))
                 .IsRequired();
 
-            notifications.Property(value => value.Email)
+            notifications.PrimitiveCollection(value => value.Email)
                 .HasColumnName("notifications_email")
-                .HasConversion(
-                    kinds => kinds.Select(SnakeCaseEnumConverter<NotificationKind>.ToSnakeCase).ToArray(),
-                    values => ParseKinds(values))
-                .HasColumnType("text[]")
+                .ElementType(element => element.HasConversion(new SnakeCaseEnumConverter<NotificationKind>()))
                 .IsRequired();
         });
 
@@ -238,7 +232,4 @@ internal sealed class UserPreferencesConfiguration : IEntityTypeConfiguration<Us
         builder.Navigation(preferences => preferences.Ai).IsRequired();
     }
 
-    private static IReadOnlyCollection<NotificationKind> ParseKinds(string[] values) =>
-        [.. values.Select(value => Enum.GetValues<NotificationKind>()
-            .First(kind => SnakeCaseEnumConverter<NotificationKind>.ToSnakeCase(kind) == value))];
 }

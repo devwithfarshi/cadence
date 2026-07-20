@@ -1,5 +1,6 @@
 using Cadence.Api.Common;
 using Cadence.Api.Configuration;
+using Cadence.Api.Endpoints;
 using Cadence.Application;
 using Cadence.Infrastructure;
 using Cadence.Infrastructure.Configuration;
@@ -72,6 +73,11 @@ try
     app.UseCors(CorsOptions.PolicyName);
     app.UseRateLimiter();
 
+    // Authentication before authorization, both before endpoints — the order is what makes
+    // User populated by the time a policy is evaluated.
+    app.UseAuthentication();
+    app.UseAuthorization();
+
     // Served in every environment: the client renders it as an API reference.
     app.UseSwagger();
 
@@ -86,6 +92,8 @@ try
             options.DocumentTitle = "Cadence API";
         });
     }
+
+    app.MapAuthEndpoints();
 
     MapHealthEndpoints(app);
 

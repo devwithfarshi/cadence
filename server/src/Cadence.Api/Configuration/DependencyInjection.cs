@@ -31,6 +31,7 @@ public static class DependencyInjection
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUser, CurrentUser>();
 
+        services.AddCadenceAuthentication(configuration);
         services.AddCadenceProblemDetails();
         services.AddCadenceCors(configuration);
         services.AddCadenceRateLimiting(configuration);
