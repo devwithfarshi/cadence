@@ -1,4 +1,5 @@
 using System.Reflection;
+using Cadence.Application.Common.Abstractions;
 using Cadence.Application.Common.Behaviors;
 using FluentValidation;
 using Mapster;
@@ -41,9 +42,34 @@ public static class DependencyInjection
         services.AddScoped(typeof(IPipelineBehavior<,>), typeof(PerformanceBehavior<,>));
 
         services.AddValidatorsFromAssembly(assembly, includeInternalTypes: true);
+        services.AddDomainEventHandlers(assembly);
         services.AddMapster(assembly);
 
         return services;
+    }
+
+    /// <summary>
+    /// Registers every <see cref="IDomainEventHandler{TDomainEvent}"/> in the assembly.
+    /// </summary>
+    /// <remarks>
+    /// By convention, so subscribing to an event is writing the handler and nothing else. A handler
+    /// that has to be registered by hand is one that will silently not run when someone forgets —
+    /// and a domain event with no subscriber fails no test, it just quietly does nothing.
+    /// </remarks>
+    private static void AddDomainEventHandlers(this IServiceCollection services, Assembly assembly)
+    {
+        var handlers = assembly.GetTypes()
+            .Where(type => type is { IsAbstract: false, IsInterface: false, IsGenericTypeDefinition: false })
+            .SelectMany(
+                type => type.GetInterfaces()
+                    .Where(@interface => @interface.IsGenericType
+                        && @interface.GetGenericTypeDefinition() == typeof(IDomainEventHandler<>)),
+                (type, @interface) => (Implementation: type, Service: @interface));
+
+        foreach (var (implementation, service) in handlers)
+        {
+            services.AddScoped(service, implementation);
+        }
     }
 
     /// <summary>

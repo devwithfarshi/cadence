@@ -1,6 +1,5 @@
-using Cadence.Application.Common.Messaging;
+using Cadence.Application.Common.Abstractions;
 using Cadence.Domain.Common;
-using Mediator;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
@@ -21,7 +20,8 @@ namespace Cadence.Infrastructure.Persistence.Interceptors;
 /// re-publish the same event and loop.
 /// </para>
 /// </remarks>
-public sealed class DomainEventDispatchInterceptor(IPublisher publisher) : SaveChangesInterceptor
+public sealed class DomainEventDispatchInterceptor(IDomainEventDispatcher dispatcher)
+    : SaveChangesInterceptor
 {
     public override async ValueTask<int> SavedChangesAsync(
         SaveChangesCompletedEventData eventData,
@@ -65,19 +65,6 @@ public sealed class DomainEventDispatchInterceptor(IPublisher publisher) : SaveC
             aggregate.ClearDomainEvents();
         }
 
-        foreach (var domainEvent in events)
-        {
-            await publisher.Publish(Wrap(domainEvent), cancellationToken);
-        }
-    }
-
-    /// <summary>
-    /// Boxes the event into <see cref="DomainEventNotification{TDomainEvent}"/> so the mediator can
-    /// route it, without Domain having to know a mediator exists.
-    /// </summary>
-    private static object Wrap(DomainEvent domainEvent)
-    {
-        var notificationType = typeof(DomainEventNotification<>).MakeGenericType(domainEvent.GetType());
-        return Activator.CreateInstance(notificationType, domainEvent)!;
+        await dispatcher.DispatchAsync(events, cancellationToken);
     }
 }

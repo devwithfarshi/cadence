@@ -1,0 +1,19 @@
+# Build outputs — copying these in would both bloat the context and risk a stale assembly
+# shadowing the one the build produces.
+**/bin/
+**/obj/
+**/out/
+
+# Never ship secrets into an image layer. Layers are extractable even if a later step deletes them.
+.env
+**/*.user
+**/appsettings.*.local.json
+
+.git/
+.github/
+.vs/
+.idea/
+docs/
+tests/
+**/TestResults/
+**/*.md

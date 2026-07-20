@@ -1,0 +1,73 @@
+# Local development stack. Run from `server/`:
+#
+#   docker compose -f docker/docker-compose.yml up -d postgres redis   # dependencies only
+#   docker compose -f docker/docker-compose.yml up --build             # everything
+#
+# `down -v` drops the volumes and with them the data.
+
+name: cadence
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-cadence}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cadence}
+      POSTGRES_DB: ${POSTGRES_DB:-cadence}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      # -U matters: without it pg_isready checks the root role and reports ready before the
+      # application role and database exist, so the API still races an unusable server.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cadence} -d ${POSTGRES_DB:-cadence}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    # Append-only persistence: the cache is disposable, but rate-limit and session state surviving a
+    # restart is worth the write cost locally.
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    depends_on:
+      # service_healthy, not service_started — otherwise the API races a Postgres that is listening
+      # but not yet accepting queries, and the first request of every fresh stack fails.
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      # `__` is the nesting separator in environment variables (§11.1).
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-cadence};Username=${POSTGRES_USER:-cadence};Password=${POSTGRES_PASSWORD:-cadence}"
+      Redis__ConnectionString: "redis:6379"
+      Cors__AllowedOrigins__0: "${CLIENT_ORIGIN:-http://localhost:3000}"
+    env_file:
+      # Real secrets live here and the file is git-ignored. Optional, so the stack still starts
+      # before anyone has created one.
+      - path: ../.env
+        required: false
+    ports:
+      - "${API_PORT:-8080}:8080"
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:

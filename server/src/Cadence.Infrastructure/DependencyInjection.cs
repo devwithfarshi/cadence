@@ -27,6 +27,7 @@ public static class DependencyInjection
         services.AddPersistence(configuration);
 
         services.AddSingleton<IDateTime, SystemDateTime>();
+        services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
 
         return services;
     }
