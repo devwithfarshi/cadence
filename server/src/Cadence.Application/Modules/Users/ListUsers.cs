@@ -36,14 +36,15 @@ public sealed class ListUsersHandler(ICadenceDbContext context, ICurrentUser cur
             members = members.Where(member => member.Role == role);
         }
 
+        // Filtered on the membership, not the user: status here means standing in *this* workspace.
+        if (query.Status is { } status)
+        {
+            members = members.Where(member => member.Status == status);
+        }
+
         var joined = from member in members
                      join user in context.Users.AsNoTracking() on member.UserId equals user.Id
                      select new { member, user };
-
-        if (query.Status is { } status)
-        {
-            joined = joined.Where(row => row.user.Status == status);
-        }
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {

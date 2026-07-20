@@ -23,6 +23,7 @@ public sealed class RefreshToken : Entity
 
     private RefreshToken(
         Guid userId,
+        Guid organizationId,
         string tokenHash,
         Guid familyId,
         DateTimeOffset expiresAt,
@@ -30,6 +31,7 @@ public sealed class RefreshToken : Entity
         string? ipAddress)
     {
         UserId = userId;
+        OrganizationId = organizationId;
         TokenHash = tokenHash;
         FamilyId = familyId;
         ExpiresAt = expiresAt;
@@ -40,6 +42,27 @@ public sealed class RefreshToken : Entity
     }
 
     public Guid UserId { get; private set; }
+
+    /// <summary>
+    /// The workspace this session is currently scoped to.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The session remembers its workspace, so a refresh 15 minutes after switching re-issues the
+    /// workspace the user chose rather than resolving one again from their membership list. Without
+    /// it a switch would quietly undo itself at the next rotation and nothing would report why.
+    /// </para>
+    /// <para>
+    /// It sits on the session rather than on the user because two devices may legitimately sit in
+    /// two different workspaces at once — a laptop in the company account and a phone in a personal
+    /// one. A single "last active organization" on <see cref="User"/> would have them fight over it.
+    /// </para>
+    /// <para>
+    /// Note this entity is deliberately <b>not</b> <c>ITenantScoped</c>: refresh runs before any
+    /// workspace is known, so a tenant query filter would hide the very row it needs to find.
+    /// </para>
+    /// </remarks>
+    public Guid OrganizationId { get; private set; }
 
     /// <summary>SHA-256 of the token. The plaintext exists only in the client's cookie.</summary>
     public string TokenHash { get; private set; }
@@ -73,6 +96,7 @@ public sealed class RefreshToken : Entity
 
     public static RefreshToken Issue(
         Guid userId,
+        Guid organizationId,
         string tokenHash,
         TimeSpan lifetime,
         Guid? familyId = null,
@@ -80,15 +104,37 @@ public sealed class RefreshToken : Entity
         string? ipAddress = null)
     {
         DomainException.ThrowIf(string.IsNullOrWhiteSpace(tokenHash), "Token hash is required.");
+        DomainException.ThrowIf(
+            organizationId == Guid.Empty,
+            "A session must be scoped to a workspace.");
 
         return new RefreshToken(
             userId,
+            organizationId,
             tokenHash,
             // A brand-new sign-in starts a new family; a rotation continues the existing one.
             familyId ?? Guid.CreateVersion7(),
             DateTimeOffset.UtcNow.Add(lifetime),
             device,
             ipAddress);
+    }
+
+    /// <summary>
+    /// Re-points this session at another workspace, as an organization switch does.
+    /// </summary>
+    /// <remarks>
+    /// The token is not rotated: nothing about the credential has changed, only which workspace it
+    /// resolves to. Rotating would invalidate the cookie the client currently holds and buy nothing.
+    /// </remarks>
+    public void ScopeTo(Guid organizationId)
+    {
+        DomainException.ThrowIf(
+            organizationId == Guid.Empty,
+            "A session must be scoped to a workspace.");
+        DomainException.ThrowIf(!IsActive, "Only an active session can change workspace.");
+
+        OrganizationId = organizationId;
+        LastUsedAt = DateTimeOffset.UtcNow;
     }
 
     public void RotateTo(RefreshToken successor)

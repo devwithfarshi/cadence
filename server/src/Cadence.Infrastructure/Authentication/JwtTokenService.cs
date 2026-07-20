@@ -78,6 +78,14 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options, IDateTime cloc
             clock.UtcNow.AddDays(_options.RefreshTokenDays));
     }
 
+    /// <inheritdoc />
+    public OpaqueToken CreateOpaqueToken()
+    {
+        var value = Base64UrlEncoder.Encode(RandomNumberGenerator.GetBytes(32));
+
+        return new OpaqueToken(value, HashRefreshToken(value));
+    }
+
     /// <summary>
     /// SHA-256, deliberately unsalted and fast.
     /// </summary>

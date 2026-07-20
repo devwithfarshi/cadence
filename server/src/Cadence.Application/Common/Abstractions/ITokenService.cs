@@ -21,7 +21,28 @@ public interface ITokenService
 
     /// <summary>Hashes a presented refresh token so it can be looked up against stored hashes.</summary>
     string HashRefreshToken(string token);
+
+    /// <summary>
+    /// Mints an opaque secret and the hash to store beside it — invitation links today, API keys
+    /// when that module lands.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="CreateRefreshToken"/> because these secrets carry their own
+    /// lifetimes: an invitation expires in fourteen days and an API key never does, neither of which
+    /// is the refresh window. Returning an expiry here would only invite a caller to use the wrong
+    /// one.
+    /// </remarks>
+    OpaqueToken CreateOpaqueToken();
 }
+
+/// <summary>
+/// A generated secret and its stored hash.
+/// </summary>
+/// <remarks>
+/// <c>Value</c> exists exactly once, in the response or the email that carries it. Only
+/// <c>Hash</c> is ever persisted, so a database leak yields nothing redeemable.
+/// </remarks>
+public sealed record OpaqueToken(string Value, string Hash);
 
 public sealed record AccessTokenRequest(
     Guid UserId,

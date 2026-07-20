@@ -124,6 +124,27 @@ public sealed class Organization : AggregateRoot, ISoftDeletable
         }
     }
 
+    /// <summary>
+    /// Suspends or reinstates a member's access to this workspace.
+    /// </summary>
+    /// <remarks>
+    /// The last owner is protected here for the same reason as in <see cref="ChangeMemberRole"/>:
+    /// suspending them leaves a workspace nobody can administer, which demotion is already barred
+    /// from producing. Blocking one route and not the other would just make it a two-step.
+    /// </remarks>
+    public void SetMemberStatus(Guid userId, UserStatus status)
+    {
+        var member = _members.FirstOrDefault(candidate => candidate.UserId == userId)
+            ?? throw new DomainException("That person is not a member of this organization.");
+
+        if (member.Role == UserRole.Owner && status == UserStatus.Suspended && OwnerCount() == 1)
+        {
+            throw new DomainException("The only owner cannot be suspended. Promote someone else first.");
+        }
+
+        member.ChangeStatus(status);
+    }
+
     public void RemoveMember(Guid userId)
     {
         var member = _members.FirstOrDefault(candidate => candidate.UserId == userId)

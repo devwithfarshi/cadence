@@ -78,6 +78,15 @@ internal sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refre
             .WithMany()
             .HasForeignKey(token => token.UserId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // The workspace the session is scoped to. Cascade, because a session pointing at a deleted
+        // workspace can never be refreshed into a usable token — it would resolve to a tenant with
+        // no rows. Deleting it forces a clean sign-in instead of a session that silently sees
+        // nothing.
+        builder.HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(token => token.OrganizationId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }
 

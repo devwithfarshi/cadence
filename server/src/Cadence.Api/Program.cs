@@ -95,6 +95,8 @@ try
 
     app.MapAuthEndpoints();
     app.MapUserEndpoints();
+    app.MapOrganizationEndpoints();
+    app.MapInvitationEndpoints();
 
     MapHealthEndpoints(app);
 

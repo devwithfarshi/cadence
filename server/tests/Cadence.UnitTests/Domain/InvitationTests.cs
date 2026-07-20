@@ -104,6 +104,46 @@ public class InvitationTests
         accepted.Status.ShouldBe(InvitationStatus.Accepted);
     }
 
+    [Fact]
+    public void Reissue_ReplacesTheTokenSoTheOldLinkStopsWorking()
+    {
+        // Resending because a link went astray must invalidate the link that went astray, or the
+        // resend hands out a second working invitation rather than replacing the first.
+        var invitation = Create();
+
+        invitation.Reissue("9c1185a5c5e9fc54612808977ee8f548", Now.AddDays(14), Now);
+
+        invitation.TokenHash.ShouldBe("9c1185a5c5e9fc54612808977ee8f548");
+        invitation.Status.ShouldBe(InvitationStatus.Pending);
+    }
+
+    [Fact]
+    public void Reissue_RevivesAnExpiredInvitation()
+    {
+        var invitation = Create();
+        invitation.MarkExpired(Now.AddDays(30));
+
+        invitation.Reissue("9c1185a5c5e9fc54612808977ee8f548", Now.AddDays(44), Now.AddDays(30));
+
+        invitation.IsRedeemable(Now.AddDays(30)).ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Reissue_RefusesAnAcceptedOrRevokedInvitation()
+    {
+        // Reviving either would silently re-grant access that somebody deliberately ended.
+        var accepted = Create();
+        accepted.Accept(Guid.CreateVersion7(), "sam.okafor@northwind.io", Now);
+
+        var revoked = Create();
+        revoked.Revoke();
+
+        Should.Throw<DomainException>(
+            () => accepted.Reissue("9c1185a5c5e9fc54612808977ee8f548", Now.AddDays(14), Now));
+        Should.Throw<DomainException>(
+            () => revoked.Reissue("9c1185a5c5e9fc54612808977ee8f548", Now.AddDays(14), Now));
+    }
+
     private static Invitation Create(
         string email = "sam.okafor@northwind.io",
         UserRole role = UserRole.Member) =>

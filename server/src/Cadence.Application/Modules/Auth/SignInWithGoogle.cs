@@ -74,12 +74,16 @@ public sealed class SignInWithGoogleHandler(
                 Error.Forbidden("auth.suspended", "This account has been suspended."));
         }
 
+        await RedeemInvitationsAsync(user, identity, cancellationToken);
+
         // A membership created moments ago is tracked but not yet in the database, and a query
         // would go to the database and find nothing. So the freshly provisioned one is carried
         // through rather than looked up.
         var membership = provisioned ?? await context.OrganizationMembers
             .IgnoreQueryFilters()
-            .Where(member => member.UserId == user.Id)
+            // Suspended memberships are skipped, not just hidden: signing in to a workspace that has
+            // suspended you would make the suspension decorative.
+            .Where(member => member.UserId == user.Id && member.Status != UserStatus.Suspended)
             .OrderBy(member => member.JoinedAt)
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -87,7 +91,7 @@ public sealed class SignInWithGoogleHandler(
         {
             // Every user has at least their own workspace, created on first sign-in, so this means
             // the account was left unusable rather than provisioning failing loudly.
-            logger.LogError("User {UserId} signed in with no organization membership", user.Id);
+            logger.LogError("User {UserId} signed in with no usable organization membership", user.Id);
 
             return Result.Failure<AuthResult>(
                 Error.Failure("auth.no_workspace", "This account has no workspace."));
@@ -100,6 +104,92 @@ public sealed class SignInWithGoogleHandler(
         await context.SaveChangesAsync(cancellationToken);
 
         return Result.Success(session);
+    }
+
+    /// <summary>
+    /// Turns any invitation addressed to this verified identity into a membership.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is where an invitation is accepted. There is no accept endpoint, deliberately: the token
+    /// in the email identifies the invitation but authenticates nobody, so redemption is gated on
+    /// signing in with Google and matching the <b>verified</b> address (§5.6). A forwarded link
+    /// therefore cannot be redeemed by whoever it was forwarded to.
+    /// </para>
+    /// <para>
+    /// Gated on <c>EmailVerified</c> for the reason account linking is: an unverified token claiming
+    /// <c>victim@corp.com</c> would otherwise walk into that company's workspace.
+    /// </para>
+    /// </remarks>
+    private async Task RedeemInvitationsAsync(
+        User user,
+        GoogleIdentity identity,
+        CancellationToken cancellationToken)
+    {
+        if (!identity.EmailVerified)
+        {
+            return;
+        }
+
+        var now = clock.UtcNow;
+        var email = identity.Email.Trim().ToLowerInvariant();
+
+        // IgnoreQueryFilters because the invitation belongs to the inviting workspace, and the
+        // caller has no workspace at all at this point in the request.
+        var pending = await context.Invitations
+            .IgnoreQueryFilters()
+            .Where(invitation => invitation.Email == email
+                && invitation.Status == InvitationStatus.Pending)
+            .ToListAsync(cancellationToken);
+
+        foreach (var invitation in pending)
+        {
+            if (!invitation.IsRedeemable(now))
+            {
+                // Materialised so the sender's list stops offering to revoke something already dead.
+                invitation.MarkExpired(now);
+                continue;
+            }
+
+            var organization = await context.Organizations
+                .IgnoreQueryFilters()
+                .Include(candidate => candidate.Members)
+                .FirstOrDefaultAsync(
+                    candidate => candidate.Id == invitation.OrganizationId
+                        && candidate.DeletedAt == null,
+                    cancellationToken);
+
+            if (organization is null)
+            {
+                // The workspace was deleted after the invitation went out.
+                invitation.Revoke();
+                continue;
+            }
+
+            if (organization.Members.Any(member => member.UserId == user.Id))
+            {
+                // Already joined by another route. Marked accepted rather than left pending, so it
+                // does not sit in the admin's list forever.
+                invitation.Accept(user.Id, identity.Email, now);
+                continue;
+            }
+
+            // Added to the set explicitly, not left to the collection navigation. Cadence entities
+            // generate their own UUIDv7 key in the constructor, so when a new child is attached to
+            // an *already tracked* parent, change detection sees a populated key and infers an
+            // existing row — it emits an UPDATE that matches nothing and throws
+            // DbUpdateConcurrencyException. Provisioning gets away with it only because the whole
+            // graph is added at once, which marks every entity in it Added.
+            var joined = organization.AddMember(user.Id, invitation.Role);
+            await context.OrganizationMembers.AddAsync(joined, cancellationToken);
+
+            invitation.Accept(user.Id, identity.Email, now);
+
+            logger.LogInformation(
+                "User {UserId} joined workspace {OrganizationId} by invitation",
+                user.Id,
+                organization.Id);
+        }
     }
 
     /// <summary>
@@ -213,6 +303,7 @@ public sealed class SignInWithGoogleHandler(
 
         var refreshToken = RefreshToken.Issue(
             user.Id,
+            membership.OrganizationId,
             refresh.Hash,
             refresh.ExpiresAt - clock.UtcNow,
             device: sessionContext.Device,

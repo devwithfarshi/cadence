@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Cadence.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Cadence.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(CadenceDbContext))]
-    partial class CadenceDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260720115545_MembershipStatus")]
+    partial class MembershipStatus
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

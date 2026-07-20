@@ -78,11 +78,7 @@ public sealed class RefreshSessionHandler(
             return Result.Failure<AuthResult>(Rejected);
         }
 
-        var membership = await context.OrganizationMembers
-            .IgnoreQueryFilters()
-            .Where(member => member.UserId == user.Id)
-            .OrderBy(member => member.JoinedAt)
-            .FirstOrDefaultAsync(cancellationToken);
+        var membership = await ResolveMembershipAsync(user.Id, stored.OrganizationId, cancellationToken);
 
         if (membership is null)
         {
@@ -99,6 +95,34 @@ public sealed class RefreshSessionHandler(
         await context.SaveChangesAsync(cancellationToken);
 
         return Result.Success(result);
+    }
+
+    /// <summary>
+    /// Finds the caller's membership in the workspace this session is scoped to.
+    /// </summary>
+    /// <remarks>
+    /// The session's own workspace first, so a refresh does not undo a switch the user made. If they
+    /// have since been removed from it — or suspended in it — refresh falls back to their oldest
+    /// remaining membership rather than ending the session: losing access to one workspace should
+    /// not sign someone out of the others.
+    /// <para>
+    /// This is also where a suspension takes effect, at the next refresh at the latest. That bounded
+    /// staleness is the price stateless authorization pays (§4.4).
+    /// </para>
+    /// </remarks>
+    private async Task<OrganizationMember?> ResolveMembershipAsync(
+        Guid userId,
+        Guid sessionOrganizationId,
+        CancellationToken cancellationToken)
+    {
+        var memberships = await context.OrganizationMembers
+            .IgnoreQueryFilters()
+            .Where(member => member.UserId == userId && member.Status != UserStatus.Suspended)
+            .OrderBy(member => member.JoinedAt)
+            .ToListAsync(cancellationToken);
+
+        return memberships.FirstOrDefault(member => member.OrganizationId == sessionOrganizationId)
+            ?? memberships.FirstOrDefault();
     }
 
     /// <summary>
@@ -142,6 +166,9 @@ public sealed class RefreshSessionHandler(
 
         var successor = RefreshToken.Issue(
             user.Id,
+            // The membership actually resolved, not the one the old token named: if they lost access
+            // to that workspace the successor must be scoped to where they landed instead.
+            membership.OrganizationId,
             refresh.Hash,
             refresh.ExpiresAt - clock.UtcNow,
             // Same family: this is the same session continuing, which is what makes reuse

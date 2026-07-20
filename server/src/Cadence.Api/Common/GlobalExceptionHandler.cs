@@ -105,6 +105,17 @@ public sealed class GlobalExceptionHandler(
                 "The request was cancelled.",
                 "The client closed the connection before the request completed."),
 
+            // A body that does not deserialise is the caller's mistake, not ours. Minimal APIs raise
+            // this before any handler runs, so without a case here every malformed payload — most
+            // commonly an enum value the API does not define — is reported as a server defect.
+            // The message is the framework's own and names the offending path, with no internal
+            // detail in it.
+            BadHttpRequestException badRequest => Problem(
+                StatusCodes.Status400BadRequest,
+                "malformed-request",
+                "The request could not be read.",
+                badRequest.InnerException?.Message ?? badRequest.Message),
+
             // Everything else is a defect. The message is deliberately generic: a stack trace or
             // SQL fragment in a response is reconnaissance handed to an attacker (§10.3). The
             // correlation id below is what ties this back to the full detail in the log.

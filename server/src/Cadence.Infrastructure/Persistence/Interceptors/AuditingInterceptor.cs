@@ -49,6 +49,7 @@ public sealed class AuditingInterceptor(ICurrentUser currentUser, IDateTime date
             if (entry.State == EntityState.Deleted && entry.Entity is ISoftDeletable softDeletable)
             {
                 SoftDelete(entry, softDeletable, now, actor);
+                RestoreCascadedDeletes(context, entry);
                 continue;
             }
 
@@ -91,6 +92,75 @@ public sealed class AuditingInterceptor(ICurrentUser currentUser, IDateTime date
         if (entry.Entity is AuditableEntity auditable)
         {
             auditable.SetUpdated(now, actor);
+        }
+    }
+
+    /// <summary>
+    /// Undoes the deletes EF cascaded from an entity that is only being soft-deleted.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// By the time an interceptor runs, EF has already decided that deleting a row deletes what
+    /// hangs off it. Rewriting the parent to <c>Modified</c> does not revisit that, and the two
+    /// consequences are quite different in severity:
+    /// </para>
+    /// <list type="number">
+    /// <item>
+    /// <b>Owned types crash the save.</b> An owned entity shares its owner's row, so a
+    /// still-<c>Deleted</c> owned entry makes EF write <c>NULL</c> into its columns — and the first
+    /// one that is <c>NOT NULL</c> fails the statement. Deleting an organization hit exactly this
+    /// on <c>settings_name</c>.
+    /// </item>
+    /// <item>
+    /// <b>Dependents are deleted for real.</b> A soft delete removes no row, so cascading to loaded
+    /// children hard-deletes them — leaving a "restorable" workspace that comes back with no
+    /// members, and unrecoverably so.
+    /// </item>
+    /// </list>
+    /// <para>
+    /// Only loaded navigations are walked, which is exactly the right scope: EF cannot have
+    /// cascaded to a child it never tracked.
+    /// </para>
+    /// </remarks>
+    private static void RestoreCascadedDeletes(DbContext context, EntityEntry entry)
+    {
+        foreach (var navigation in entry.Navigations)
+        {
+            foreach (var target in TargetsOf(context, navigation))
+            {
+                if (target.State != EntityState.Deleted)
+                {
+                    continue;
+                }
+
+                // Unchanged, not Modified: nothing about the child actually changed, and marking it
+                // Modified would issue a pointless UPDATE of every column on every soft delete.
+                target.State = EntityState.Unchanged;
+
+                // Depth-first, because a dependent may own types of its own.
+                RestoreCascadedDeletes(context, target);
+            }
+        }
+    }
+
+    private static IEnumerable<EntityEntry> TargetsOf(DbContext context, NavigationEntry navigation)
+    {
+        switch (navigation)
+        {
+            case ReferenceEntry { TargetEntry: { } target }:
+                yield return target;
+                break;
+
+            case CollectionEntry { CurrentValue: { } items }:
+                foreach (var item in items)
+                {
+                    yield return context.Entry(item);
+                }
+
+                break;
+
+            default:
+                break;
         }
     }
 

@@ -105,6 +105,28 @@ public sealed class Invitation : AggregateRoot, ITenantScoped
         AcceptedByUserId = userId;
     }
 
+    /// <summary>
+    /// Issues a new token and expiry, for an invitation that lapsed or whose email went astray.
+    /// </summary>
+    /// <remarks>
+    /// The old token stops working, which is the point: resending because a link was lost should not
+    /// leave the lost link redeemable. An expired invitation can be revived this way, but an
+    /// accepted or revoked one cannot — reviving either would silently re-grant access that somebody
+    /// deliberately ended.
+    /// </remarks>
+    public void Reissue(string tokenHash, DateTimeOffset expiresAt, DateTimeOffset now)
+    {
+        DomainException.ThrowIf(
+            Status is InvitationStatus.Accepted or InvitationStatus.Revoked,
+            "Only a pending or expired invitation can be resent.");
+        DomainException.ThrowIf(string.IsNullOrWhiteSpace(tokenHash), "A token hash is required.");
+        DomainException.ThrowIf(expiresAt <= now, "An invitation cannot be resent already expired.");
+
+        TokenHash = tokenHash;
+        ExpiresAt = expiresAt;
+        Status = InvitationStatus.Pending;
+    }
+
     public void Revoke()
     {
         DomainException.ThrowIf(

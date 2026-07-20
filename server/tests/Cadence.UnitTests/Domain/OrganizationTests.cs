@@ -107,4 +107,58 @@ public class OrganizationTests
         Should.Throw<DomainException>(
             () => organization.ChangeMemberRole(Guid.CreateVersion7(), UserRole.Admin));
     }
+
+    [Fact]
+    public void NewMembers_AreActiveInTheirWorkspace()
+    {
+        var organization = Organization.Create("Northwind Labs", OwnerId);
+        var member = organization.AddMember(Guid.CreateVersion7(), UserRole.Member);
+
+        member.Status.ShouldBe(UserStatus.Active);
+        member.IsActive.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void SuspendingAMember_LeavesTheirOtherWorkspacesAlone()
+    {
+        // Status lives on the membership rather than the user precisely for this. Were it global,
+        // anyone able to create a free workspace and get an invitation accepted could disable a
+        // colleague's real account.
+        var person = Guid.CreateVersion7();
+
+        var first = Organization.Create("Northwind Labs", OwnerId);
+        first.AddMember(person, UserRole.Member);
+
+        var second = Organization.Create("Contoso", Guid.CreateVersion7());
+        second.AddMember(person, UserRole.Member);
+
+        first.SetMemberStatus(person, UserStatus.Suspended);
+
+        first.Members.Single(member => member.UserId == person).IsActive.ShouldBeFalse();
+        second.Members.Single(member => member.UserId == person).IsActive.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void SuspendingTheOnlyOwner_IsRefused()
+    {
+        // Demotion is already barred from leaving a workspace nobody can administer. Blocking that
+        // route and not this one would just make it a two-step.
+        var organization = Organization.Create("Northwind Labs", OwnerId);
+
+        Should.Throw<DomainException>(
+            () => organization.SetMemberStatus(OwnerId, UserStatus.Suspended));
+    }
+
+    [Fact]
+    public void SuspendingAnOwner_IsAllowedOnceThereIsAnother()
+    {
+        var organization = Organization.Create("Northwind Labs", OwnerId);
+        var second = Guid.CreateVersion7();
+        organization.AddMember(second, UserRole.Member);
+        organization.ChangeMemberRole(second, UserRole.Owner);
+
+        organization.SetMemberStatus(OwnerId, UserStatus.Suspended);
+
+        organization.Members.Single(member => member.UserId == OwnerId).IsActive.ShouldBeFalse();
+    }
 }
