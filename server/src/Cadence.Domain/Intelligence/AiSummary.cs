@@ -106,4 +106,29 @@ public sealed class AiSummary : AggregateRoot, ITenantScoped
         _keyPoints.AddRange(keyPoints.Where(point => !string.IsNullOrWhiteSpace(point)));
         _highlights.Clear();
     }
+
+    /// <summary>
+    /// Announces the commitments the model found in the transcript.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Raised explicitly rather than from <see cref="Create"/>, because it has to fire on a
+    /// regeneration too — and a regeneration goes through <see cref="Replace"/>, which does not
+    /// construct anything.
+    /// </para>
+    /// <para>
+    /// The event carries <i>candidates</i>. Whether any of them becomes a task is the ActionItems
+    /// module's decision, made against the organizer's preferences — this aggregate does not know
+    /// and must not care.
+    /// </para>
+    /// </remarks>
+    public void NoteDetectedActionItems(IReadOnlyList<DetectedActionItem> items)
+    {
+        if (items.Count == 0)
+        {
+            return;
+        }
+
+        Raise(new ActionItemsDetected(MeetingId, OrganizationId, items));
+    }
 }

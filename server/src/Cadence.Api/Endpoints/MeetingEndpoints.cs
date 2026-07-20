@@ -1,6 +1,7 @@
 using Cadence.Api.Common;
 using Cadence.Api.Configuration;
 using Cadence.Application.Common.Models;
+using Cadence.Application.Modules.ActionItems;
 using Cadence.Application.Modules.Meetings;
 using Cadence.Application.Modules.Summaries;
 using Cadence.Application.Modules.Transcripts;
@@ -132,6 +133,15 @@ public static class MeetingEndpoints
             .Produces<JobAcceptedDto>(StatusCodes.Status202Accepted)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
+
+        group.MapGet("/{meetingId:guid}/action-items", ActionItemsAsync)
+            .WithName("GetMeetingActionItems")
+            .WithSummary("Every task raised in this meeting")
+            .WithDescription(
+                "Unpaged — a meeting produces a handful of commitments and the panel shows all of "
+                + "them. Tasks survive the meeting's deletion, so this list can only shrink to empty.")
+            .Produces<IReadOnlyList<ActionItemDto>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status404NotFound);
 
         group.MapPost("/{meetingId:guid}/bookmarks", AddBookmarkAsync)
             .WithName("AddMeetingBookmark")
@@ -326,6 +336,19 @@ public static class MeetingEndpoints
         return result.IsSuccess
             ? TypedResults.Accepted($"/api/v1/meetings/{meetingId}/summary", result.Value)
             : result.ToProblem(context);
+    }
+
+    private static async Task<IResult> ActionItemsAsync(
+        Guid meetingId,
+        HttpContext context,
+        ISender sender,
+        CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(
+            new ListMeetingActionItemsQuery(meetingId),
+            cancellationToken);
+
+        return result.IsSuccess ? TypedResults.Ok(result.Value) : result.ToProblem(context);
     }
 
     private static async Task<IResult> AddBookmarkAsync(

@@ -61,6 +61,7 @@ public sealed class FakeLlmProvider : ILlmProvider
         string text = "The team agreed to ship on Friday.",
         IReadOnlyList<string>? keyPoints = null,
         IReadOnlyList<SummaryHighlightCandidate>? highlights = null,
+        IReadOnlyList<ActionItemCandidate>? actionItems = null,
         string model = "claude-opus-4-8") =>
-        new(text, keyPoints ?? ["Ship on Friday."], highlights ?? [], [], model);
+        new(text, keyPoints ?? ["Ship on Friday."], highlights ?? [], actionItems ?? [], model);
 }

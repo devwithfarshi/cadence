@@ -187,9 +187,9 @@ public sealed class DeleteMeetingHandler(ICadenceDbContext context)
             return Result.Failure(MeetingReads.NotFound);
         }
 
-        // Soft delete, applied by the auditing interceptor. Action items assigned out of this
-        // meeting are deliberately untouched: the foreign key is SET NULL rather than CASCADE
-        // precisely so deleting a meeting never deletes somebody's assigned work (§3.8).
+        await MeetingDeletion.DetachActionItemsAsync(context, [meeting.Id], cancellationToken);
+
+        // Soft delete, applied by the auditing interceptor.
         context.Meetings.Remove(meeting);
         await context.SaveChangesAsync(cancellationToken);
 
@@ -216,10 +216,54 @@ public sealed class DeleteMeetingsHandler(ICadenceDbContext context)
             .Where(meeting => command.Ids.Contains(meeting.Id))
             .ToListAsync(cancellationToken);
 
+        await MeetingDeletion.DetachActionItemsAsync(
+            context,
+            [.. meetings.Select(meeting => meeting.Id)],
+            cancellationToken);
+
         context.Meetings.RemoveRange(meetings);
         await context.SaveChangesAsync(cancellationToken);
 
         return Result.Success(new BulkResultDto(meetings.Count));
+    }
+}
+
+/// <summary>
+/// What has to happen to a meeting's tasks before the meeting goes.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>The <c>ON DELETE SET NULL</c> foreign key does not fire for a soft delete</b>, because
+/// nothing is deleted — the row is updated. So the behaviour §3.8 specifies, a task surviving its
+/// meeting and losing its back-reference, has to be performed here. Without it a task keeps pointing
+/// at a meeting that every read now hides, and the UI offers a link to a 404.
+/// </para>
+/// <para>
+/// Done inline rather than through a <c>MeetingDeleted</c> event on purpose. Events are dispatched
+/// after the commit and a failing handler is swallowed, which would leave the meeting deleted and
+/// the tasks dangling. These two writes have to be one transaction.
+/// </para>
+/// </remarks>
+internal static class MeetingDeletion
+{
+    public static async Task DetachActionItemsAsync(
+        ICadenceDbContext context,
+        IReadOnlyList<Guid> meetingIds,
+        CancellationToken cancellationToken)
+    {
+        if (meetingIds.Count == 0)
+        {
+            return;
+        }
+
+        var items = await context.ActionItems
+            .Where(item => item.MeetingId != null && meetingIds.Contains(item.MeetingId.Value))
+            .ToListAsync(cancellationToken);
+
+        foreach (var item in items)
+        {
+            item.DetachFromMeeting();
+        }
     }
 }
 

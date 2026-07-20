@@ -110,9 +110,22 @@ public sealed class ActionItem : AggregateRoot, ISoftDeletable, ITenantScoped
         ActionItemPriority priority)
     {
         var item = Create(organizationId, creatorId, title, priority: priority, assigneeId: assigneeId);
-        item.MeetingId = meetingId;
-        item.SourceSegmentId = sourceSegmentId;
+        item.LinkToMeeting(meetingId, sourceSegmentId);
         return item;
+    }
+
+    /// <summary>
+    /// Records which meeting — and optionally which transcript line — this came out of.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="Create"/> because a task filed by hand on a meeting's page has the
+    /// same provenance as an extracted one, but none of the other extraction context. The caller is
+    /// responsible for having established that it may see that meeting.
+    /// </remarks>
+    public void LinkToMeeting(Guid meetingId, Guid? sourceSegmentId)
+    {
+        MeetingId = meetingId;
+        SourceSegmentId = sourceSegmentId;
     }
 
     public void UpdateDetails(string title, string description)

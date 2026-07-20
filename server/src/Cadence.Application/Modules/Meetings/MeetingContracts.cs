@@ -87,16 +87,4 @@ public sealed record UpdateMeetingRequest(
 
 public sealed record AddBookmarkRequest(int AtSeconds, string Label);
 
-public sealed record BulkIdsRequest(IReadOnlyList<Guid> Ids);
-
 public sealed record ArchiveRequest(IReadOnlyList<Guid> Ids, bool Archived);
-
-/// <summary>
-/// How many rows a bulk operation actually changed.
-/// </summary>
-/// <remarks>
-/// A count rather than a per-id result. Ids the caller cannot see are simply not counted, which is
-/// the same answer a tenant boundary gives to "does this exist?" — reporting them individually
-/// would turn a bulk endpoint into an existence oracle.
-/// </remarks>
-public sealed record BulkResultDto(int Affected);

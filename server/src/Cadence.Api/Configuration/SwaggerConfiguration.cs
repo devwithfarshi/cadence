@@ -1,4 +1,8 @@
 using System.Reflection;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using Cadence.Application.Common.Models;
+using Cadence.Domain.Enums;
 using Microsoft.OpenApi;
 using Swashbuckle.AspNetCore.SwaggerGen;
 
@@ -37,6 +41,8 @@ internal static class SwaggerConfiguration
             // Feeds the XML comments that Directory.Build.props already generates, so endpoint
             // summaries and parameter docs appear rather than bare method names.
             IncludeXmlComments(options);
+
+            MapPatchTypes(options);
 
             options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
             {
@@ -81,5 +87,63 @@ internal static class SwaggerConfiguration
         {
             options.IncludeXmlComments(apiXml);
         }
+    }
+
+    /// <summary>
+    /// Documents <see cref="Patch{T}"/> fields as the value they carry.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Left alone, Swashbuckle reflects over the struct and publishes
+    /// <c>{"title": {"hasValue": true, "value": "…"}}</c> — a shape the API does not accept and
+    /// would reject. A generated client built from that document would be wrong on every PATCH,
+    /// which makes this a correctness problem rather than presentation.
+    /// </para>
+    /// <para>
+    /// Each instantiation is mapped by hand because there is one place to look when a new one is
+    /// added, and an unmapped <c>Patch&lt;T&gt;</c> is visible the moment anyone opens the document.
+    /// </para>
+    /// </remarks>
+    private static void MapPatchTypes(SwaggerGenOptions options)
+    {
+        // Nullable in every case: absence is what the field not being sent means, and null is what
+        // clearing it means. The endpoint descriptions carry that distinction — a JSON schema
+        // cannot express "omitted means something different from null".
+        options.MapType<Patch<string>>(() => Nullable(JsonSchemaType.String));
+
+        options.MapType<Patch<Guid?>>(() => Nullable(JsonSchemaType.String, format: "uuid"));
+
+        options.MapType<Patch<DateTimeOffset?>>(
+            () => Nullable(JsonSchemaType.String, format: "date-time"));
+
+        options.MapType<Patch<ActionItemPriority>>(
+            () => NullableEnum<ActionItemPriority>());
+
+        options.MapType<Patch<ActionItemStatus>>(
+            () => NullableEnum<ActionItemStatus>());
+
+        options.MapType<Patch<IReadOnlyList<string>>>(() => new OpenApiSchema
+        {
+            Type = JsonSchemaType.Array | JsonSchemaType.Null,
+            Items = new OpenApiSchema { Type = JsonSchemaType.String },
+        });
+    }
+
+    private static OpenApiSchema Nullable(JsonSchemaType type, string? format = null) =>
+        new() { Type = type | JsonSchemaType.Null, Format = format };
+
+    /// <summary>Lists the values in the same snake_case spelling the API reads and writes.</summary>
+    private static OpenApiSchema NullableEnum<TEnum>()
+        where TEnum : struct, Enum
+    {
+        var schema = Nullable(JsonSchemaType.String);
+
+        schema.Enum =
+        [
+            .. Enum.GetNames<TEnum>()
+                .Select(name => (JsonNode)JsonValue.Create(JsonNamingPolicy.SnakeCaseLower.ConvertName(name))!),
+        ];
+
+        return schema;
     }
 }

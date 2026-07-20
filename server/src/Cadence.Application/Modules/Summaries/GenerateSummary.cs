@@ -3,6 +3,7 @@ using Cadence.Application.Common.Abstractions;
 using Cadence.Application.Common.Models;
 using Cadence.Domain.Enums;
 using Cadence.Domain.Intelligence;
+using Cadence.Domain.Intelligence.Events;
 using Mediator;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -118,7 +119,23 @@ public sealed class GenerateSummaryHandler(
                 "The summary could not be generated. You can try again."));
         }
 
-        await PersistAsync(meeting.Id, meeting.OrganizationId, generated, segments, cancellationToken);
+        // Names as spoken in the room, mapped to the people who were actually in it. Case-insensitive
+        // because the model echoes back whatever casing the transcript used; duplicates collapse to
+        // the first, since a room with two identically-named attendees cannot attribute by name at all.
+        var participantsByName = meeting.Participants
+            .GroupBy(participant => participant.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group => group.First().UserId,
+                StringComparer.OrdinalIgnoreCase);
+
+        await PersistAsync(
+            meeting.Id,
+            meeting.OrganizationId,
+            generated,
+            segments,
+            participantsByName,
+            cancellationToken);
 
         meeting.MarkSummaryReady();
         await context.SaveChangesAsync(cancellationToken);
@@ -140,6 +157,7 @@ public sealed class GenerateSummaryHandler(
         Guid organizationId,
         MeetingSummaryResult generated,
         IReadOnlyList<Domain.Meetings.TranscriptSegment> segments,
+        IReadOnlyDictionary<string, Guid> participantsByName,
         CancellationToken cancellationToken)
     {
         var existing = await context.AiSummaries
@@ -188,7 +206,42 @@ public sealed class GenerateSummaryHandler(
             // generated key is otherwise detected as an existing row and issued as an UPDATE.
             context.SummaryHighlights.Add(highlight);
         }
+
+        summary.NoteDetectedActionItems(
+            Detect(generated.ActionItems, participantsByName, startsById.Keys.ToHashSet()));
     }
+
+    /// <summary>
+    /// Turns the model's action-item candidates into the event's shape.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>An assignee is resolved against the meeting's own participants, not the workspace
+    /// directory.</b> The model returns a name it read off the transcript, and matching that across
+    /// every member would let "Sam" in a meeting Sam never attended assign work to a different Sam
+    /// entirely. A name that does not match somebody who was in the room leaves the task
+    /// unassigned — the honest answer when nothing establishes who committed to it.
+    /// </para>
+    /// <para>
+    /// The source segment is intersected with this meeting's lines, exactly as a highlight's is: a
+    /// citation that does not resolve looks checkable and is not.
+    /// </para>
+    /// </remarks>
+    private static IReadOnlyList<DetectedActionItem> Detect(
+        IReadOnlyList<ActionItemCandidate> candidates,
+        IReadOnlyDictionary<string, Guid> participantsByName,
+        HashSet<Guid> segmentIds) =>
+    [
+        .. candidates
+            .Where(candidate => !string.IsNullOrWhiteSpace(candidate.Title))
+            .Select(candidate => new DetectedActionItem(
+                candidate.Title.Trim(),
+                candidate.AssigneeName is { } name
+                    && participantsByName.TryGetValue(name.Trim(), out var assigneeId)
+                        ? assigneeId
+                        : null,
+                candidate.SourceSegmentId is { } id && segmentIds.Contains(id) ? id : null)),
+    ];
 
     /// <summary>
     /// Renders the transcript with each line's id, so the model can cite them back.
