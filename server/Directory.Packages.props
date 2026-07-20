@@ -23,6 +23,7 @@
     <PackageVersion Include="CloudinaryDotNet" Version="1.29.2" />
     <PackageVersion Include="EFCore.NamingConventions" Version="10.0.1" />
     <PackageVersion Include="Google.Apis.Auth" Version="1.75.0" />
+    <PackageVersion Include="Anthropic" Version="12.36.0" />
     <PackageVersion Include="Hangfire.AspNetCore" Version="1.8.23" />
     <PackageVersion Include="Hangfire.PostgreSql" Version="1.21.1" />
     <PackageVersion Include="Microsoft.AspNetCore.DataProtection" Version="10.0.9" />

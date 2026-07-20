@@ -192,6 +192,13 @@ public sealed class Meeting : AggregateRoot, ISoftDeletable, ITenantScoped
         Status = MeetingStatus.Cancelled;
     }
 
+    /// <summary>Accepted for summarisation and waiting for a worker.</summary>
+    /// <remarks>
+    /// Set when a job is queued, so the UI can show "queued" rather than leaving a finished meeting
+    /// looking as though nothing is happening to it.
+    /// </remarks>
+    public void MarkSummaryQueued() => SummaryStatus = SummaryStatus.Queued;
+
     public void MarkSummaryGenerating() => SummaryStatus = SummaryStatus.Generating;
 
     public void MarkSummaryReady() => SummaryStatus = SummaryStatus.Ready;

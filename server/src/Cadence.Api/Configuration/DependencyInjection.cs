@@ -3,8 +3,10 @@ using System.Threading.RateLimiting;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Cadence.Api.Common;
+using Cadence.Api.Jobs;
 using Cadence.Api.Realtime;
 using Cadence.Application.Common.Abstractions;
+using Cadence.Application.Modules.Summaries;
 using Cadence.Application.Modules.Transcripts;
 using Cadence.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Mvc;
@@ -38,6 +40,10 @@ public static class DependencyInjection
         services.AddScoped<ICurrentUser, CurrentUser>();
         services.AddCadenceJson();
         services.AddCadenceRealtime();
+
+        // The job body lives here because staging a principal for non-request work is this layer's
+        // concern — see SummarizeMeetingJob.
+        services.AddScoped<ISummarizeMeetingJob, SummarizeMeetingJob>();
 
         services.AddCadenceAuthentication(configuration);
         services.AddCadenceProblemDetails();

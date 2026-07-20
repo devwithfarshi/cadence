@@ -40,12 +40,18 @@ public sealed record SummaryRequest(
 /// it. <c>ActionItems</c> are <b>candidates only</b> — whether they become real tasks is the user's
 /// call, gated by their <c>RequireActionItemReview</c> preference, so the model never silently
 /// assigns work to a colleague.
+/// <para>
+/// <c>Model</c> is reported by the adapter rather than read from configuration by the caller, so the
+/// provenance stored on a summary names the model that actually produced it — not whatever the
+/// config happened to say when the row was later read.
+/// </para>
 /// </remarks>
 public sealed record MeetingSummaryResult(
     string Summary,
     IReadOnlyList<string> KeyPoints,
     IReadOnlyList<SummaryHighlightCandidate> Highlights,
-    IReadOnlyList<ActionItemCandidate> ActionItems);
+    IReadOnlyList<ActionItemCandidate> ActionItems,
+    string Model);
 
 public sealed record SummaryHighlightCandidate(string Kind, string Text, Guid? SourceSegmentId);
 

@@ -2,6 +2,7 @@ using Cadence.Api.Common;
 using Cadence.Api.Configuration;
 using Cadence.Application.Common.Models;
 using Cadence.Application.Modules.Meetings;
+using Cadence.Application.Modules.Summaries;
 using Cadence.Application.Modules.Transcripts;
 using Cadence.Domain.Enums;
 using Mediator;
@@ -111,6 +112,26 @@ public static class MeetingEndpoints
                 + "filters to matching lines rather than paging.")
             .Produces<IReadOnlyList<TranscriptSegmentDto>>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapGet("/{meetingId:guid}/summary", SummaryAsync)
+            .WithName("GetMeetingSummary")
+            .WithSummary("A meeting's AI summary")
+            .WithDescription(
+                "404 when the meeting has no summary. Check the meeting's summaryStatus to tell "
+                + "\"not generated yet\" from \"generation failed\".")
+            .Produces<AiSummaryDto>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapPost("/{meetingId:guid}/summary", RegenerateSummaryAsync)
+            .WithName("RegenerateMeetingSummary")
+            .WithSummary("Queue a fresh summarisation run")
+            .WithDescription(
+                "Returns 202 with a job id; summarisation takes seconds to minutes. Poll the "
+                + "meeting's summaryStatus for the outcome. A failed run is reported as failed and "
+                + "never replaced with invented content.")
+            .Produces<JobAcceptedDto>(StatusCodes.Status202Accepted)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
 
         group.MapPost("/{meetingId:guid}/bookmarks", AddBookmarkAsync)
             .WithName("AddMeetingBookmark")
@@ -279,6 +300,32 @@ public static class MeetingEndpoints
         var result = await sender.Send(new GetTranscriptQuery(meetingId, search), cancellationToken);
 
         return result.IsSuccess ? TypedResults.Ok(result.Value) : result.ToProblem(context);
+    }
+
+    private static async Task<IResult> SummaryAsync(
+        Guid meetingId,
+        HttpContext context,
+        ISender sender,
+        CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(new GetSummaryQuery(meetingId), cancellationToken);
+
+        return result.IsSuccess ? TypedResults.Ok(result.Value) : result.ToProblem(context);
+    }
+
+    private static async Task<IResult> RegenerateSummaryAsync(
+        Guid meetingId,
+        HttpContext context,
+        ISender sender,
+        CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(new RegenerateSummaryCommand(meetingId), cancellationToken);
+
+        // 202, not 200: the work has been accepted, not done. Answering 200 with a summary would
+        // mean holding the request open for the length of a model call.
+        return result.IsSuccess
+            ? TypedResults.Accepted($"/api/v1/meetings/{meetingId}/summary", result.Value)
+            : result.ToProblem(context);
     }
 
     private static async Task<IResult> AddBookmarkAsync(

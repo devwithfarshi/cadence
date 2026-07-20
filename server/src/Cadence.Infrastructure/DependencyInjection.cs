@@ -1,6 +1,10 @@
 using Cadence.Application.Common.Abstractions;
 using Cadence.Infrastructure.Authentication;
+using Cadence.Infrastructure.Ai;
 using Cadence.Infrastructure.Configuration;
+using Cadence.Infrastructure.Jobs;
+using Hangfire;
+using Hangfire.PostgreSql;
 using Cadence.Infrastructure.Persistence;
 using Cadence.Infrastructure.Persistence.Interceptors;
 using Cadence.Infrastructure.Persistence.Repositories;
@@ -27,11 +31,74 @@ public static class DependencyInjection
 
         services.AddPersistence(configuration);
         services.AddAuthenticationServices(configuration);
+        services.AddAiServices(configuration);
+        services.AddBackgroundJobs(configuration);
 
         services.AddSingleton<IDateTime, SystemDateTime>();
         services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
 
         return services;
+    }
+
+    /// <summary>
+    /// The AI provider behind <c>ILlmProvider</c> (§23.3).
+    /// </summary>
+    /// <remarks>
+    /// <b>Not</b> <c>ValidateOnStart</c> on the key. A missing key must not stop the app from
+    /// booting — a developer looking at meetings should not need a paid API key, and in production
+    /// an unset key surfaces as a failed summary with a retry rather than a process that will not
+    /// start. The other settings <i>are</i> validated, because a bad model name or token budget is a
+    /// misconfiguration worth catching at boot.
+    /// </remarks>
+    private static void AddAiServices(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<AiOptions>()
+            .Bind(configuration.GetSection(AiOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        // Singleton: the SDK client is thread-safe and holds the connection pool, so one per process
+        // is both correct and what keeps keep-alive working.
+        services.AddSingleton<ILlmProvider, AnthropicLlmProvider>();
+    }
+
+    /// <summary>
+    /// Hangfire on the Postgres already in the stack (§14.1).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Storage is registered unconditionally so <c>IJobScheduler</c> always resolves, but the
+    /// <b>server</b> — the thing that actually executes jobs — is only added when enabled. That lets
+    /// a test host enqueue and assert without a worker racing it to run the job first.
+    /// </para>
+    /// <para>
+    /// <c>PrepareSchemaIfNecessary</c> is on: Hangfire owns its own tables in its own schema, and
+    /// they are not part of the EF migration story. This is the one place the "migrations never run
+    /// at startup" rule (§8.4) does not apply, because the schema belongs to the library rather than
+    /// to Cadence.
+    /// </para>
+    /// </remarks>
+    private static void AddBackgroundJobs(this IServiceCollection services, IConfiguration configuration)
+    {
+        var connectionString = configuration.GetConnectionString("Postgres");
+
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return;
+        }
+
+        services.AddHangfire(options => options
+            .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+            .UseSimpleAssemblyNameTypeSerializer()
+            .UseRecommendedSerializerSettings()
+            .UsePostgreSqlStorage(postgres => postgres.UseNpgsqlConnection(connectionString)));
+
+        services.AddScoped<IJobScheduler, HangfireJobScheduler>();
+
+        if (configuration.GetValue("Jobs:RunWorker", defaultValue: true))
+        {
+            services.AddHangfireServer(options => options.WorkerCount = Environment.ProcessorCount);
+        }
     }
 
     private static void AddAuthenticationServices(

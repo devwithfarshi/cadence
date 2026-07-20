@@ -36,6 +36,17 @@ public sealed class AuthFixture : WebApplicationFactory<Program>, IAsyncLifetime
     /// </remarks>
     public FakeGoogleIdTokenValidator Google { get; } = new();
 
+    /// <summary>
+    /// The AI model, substituted at the port.
+    /// </summary>
+    /// <remarks>
+    /// The second and last thing faked in this suite, and for the same reason as the Google
+    /// validator: it is a port to a paid third party, and calling it from tests would be
+    /// non-deterministic, slow and billed. Everything below it — the job, the handler, the
+    /// persistence, the status transitions — is the production path.
+    /// </remarks>
+    public FakeLlmProvider Llm { get; } = new();
+
     // Implemented explicitly: xunit's IAsyncLifetime returns Task, while WebApplicationFactory
     // already defines a ValueTask-returning DisposeAsync. Without this the two collide.
     async Task IAsyncLifetime.InitializeAsync()
@@ -70,12 +81,23 @@ public sealed class AuthFixture : WebApplicationFactory<Program>, IAsyncLifetime
                 ["Jwt:Issuer"] = "cadence-test",
                 ["Jwt:Audience"] = "cadence-test-client",
                 ["Google:ClientId"] = "integration-test.apps.googleusercontent.com",
+
+                // No worker: jobs are enqueued but never executed by a background thread, so a
+                // test drives the job itself and asserts without racing it.
+                ["Jobs:RunWorker"] = "false",
+
+                // Deliberately empty. The real provider is replaced below; leaving a key here would
+                // mean a mis-registration silently talked to a paid API from the test suite.
+                ["Ai:ApiKey"] = string.Empty,
             }));
 
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<IGoogleIdTokenValidator>();
             services.AddSingleton<IGoogleIdTokenValidator>(Google);
+
+            services.RemoveAll<ILlmProvider>();
+            services.AddSingleton<ILlmProvider>(Llm);
         });
 
         return base.CreateHost(builder);
