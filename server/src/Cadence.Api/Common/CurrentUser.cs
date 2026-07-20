@@ -17,9 +17,17 @@ namespace Cadence.Api.Common;
 /// Registered scoped, so one request sees one identity for its whole lifetime.
 /// </para>
 /// </remarks>
-public sealed class CurrentUser(IHttpContextAccessor accessor) : ICurrentUser
+public sealed class CurrentUser(IHttpContextAccessor accessor, ScopedPrincipal scoped) : ICurrentUser
 {
-    private ClaimsPrincipal? Principal => accessor.HttpContext?.User;
+    /// <summary>
+    /// The HTTP request's principal, or the one a hub invocation staged.
+    /// </summary>
+    /// <remarks>
+    /// <c>HttpContext</c> first, because that is the ordinary case and it is the authoritative one
+    /// while a request is in flight. <see cref="ScopedPrincipal"/> covers SignalR, where there is no
+    /// live <c>HttpContext</c> — see the note on that type for why the fallback is not optional.
+    /// </remarks>
+    private ClaimsPrincipal? Principal => accessor.HttpContext?.User ?? scoped.Principal;
 
     public Guid? Id => ReadGuid(ClaimTypes.NameIdentifier) ?? ReadGuid("sub");
 

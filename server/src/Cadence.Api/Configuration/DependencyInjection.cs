@@ -3,10 +3,13 @@ using System.Threading.RateLimiting;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Cadence.Api.Common;
+using Cadence.Api.Realtime;
 using Cadence.Application.Common.Abstractions;
+using Cadence.Application.Modules.Transcripts;
 using Cadence.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 
 namespace Cadence.Api.Configuration;
@@ -31,8 +34,10 @@ public static class DependencyInjection
             .ValidateOnStart();
 
         services.AddHttpContextAccessor();
+        services.AddScoped<ScopedPrincipal>();
         services.AddScoped<ICurrentUser, CurrentUser>();
         services.AddCadenceJson();
+        services.AddCadenceRealtime();
 
         services.AddCadenceAuthentication(configuration);
         services.AddCadenceProblemDetails();
@@ -64,6 +69,27 @@ public static class DependencyInjection
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.Converters.Add(
                 new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseLower)));
+
+    /// <summary>
+    /// SignalR, the live-ingest buffer and its flush loop.
+    /// </summary>
+    /// <remarks>
+    /// The buffer is a singleton because it is shared state across connections, and the flush
+    /// service is registered <b>as itself as well as</b> a hosted service — the hub calls it
+    /// directly to flush a busy meeting early, and two instances would mean the timer draining a
+    /// different buffer than the one the hub filled.
+    /// </remarks>
+    private static void AddCadenceRealtime(this IServiceCollection services)
+    {
+        services.AddSingleton<HubPrincipalFilter>();
+        services.AddSignalR(options => options.AddFilter<HubPrincipalFilter>());
+
+        services.AddSingleton<TranscriptIngestBuffer>();
+        services.AddSingleton<TranscriptFlushService>();
+        services.AddHostedService(provider => provider.GetRequiredService<TranscriptFlushService>());
+
+        services.AddScoped<IMeetingBroadcaster, SignalRMeetingBroadcaster>();
+    }
 
     private static void AddCadenceProblemDetails(this IServiceCollection services)
     {

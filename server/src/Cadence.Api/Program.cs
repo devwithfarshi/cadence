@@ -1,6 +1,7 @@
 using Cadence.Api.Common;
 using Cadence.Api.Configuration;
 using Cadence.Api.Endpoints;
+using Cadence.Api.Realtime;
 using Cadence.Application;
 using Cadence.Infrastructure;
 using Cadence.Infrastructure.Configuration;
@@ -98,6 +99,10 @@ try
     app.MapOrganizationEndpoints();
     app.MapInvitationEndpoints();
     app.MapMeetingEndpoints();
+
+    // The live meeting channel. Mapped alongside the endpoints so the same authentication,
+    // authorization and CORS pipeline above applies to the negotiate request.
+    app.MapHub<MeetingHub>(HubAuthentication.Path);
 
     MapHealthEndpoints(app);
 

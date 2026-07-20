@@ -2,6 +2,7 @@ using Cadence.Api.Common;
 using Cadence.Api.Configuration;
 using Cadence.Application.Common.Models;
 using Cadence.Application.Modules.Meetings;
+using Cadence.Application.Modules.Transcripts;
 using Cadence.Domain.Enums;
 using Mediator;
 using Microsoft.AspNetCore.Mvc;
@@ -100,6 +101,15 @@ public static class MeetingEndpoints
                 "The copy carries the title, attendees and tags. Recording, summary and bookmarks "
                 + "are deliberately left behind.")
             .Produces<MeetingDetailDto>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapGet("/{meetingId:guid}/transcript", TranscriptAsync)
+            .WithName("GetMeetingTranscript")
+            .WithSummary("A meeting's transcript, in playback order")
+            .WithDescription(
+                "Offsets are seconds for playback; they are stored as milliseconds. `search` "
+                + "filters to matching lines rather than paging.")
+            .Produces<IReadOnlyList<TranscriptSegmentDto>>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         group.MapPost("/{meetingId:guid}/bookmarks", AddBookmarkAsync)
@@ -257,6 +267,18 @@ public static class MeetingEndpoints
         return result.IsSuccess
             ? TypedResults.Created($"/api/v1/meetings/{result.Value.Meeting.Id}", result.Value)
             : result.ToProblem(context);
+    }
+
+    private static async Task<IResult> TranscriptAsync(
+        Guid meetingId,
+        HttpContext context,
+        ISender sender,
+        CancellationToken cancellationToken,
+        [FromQuery] string? search = null)
+    {
+        var result = await sender.Send(new GetTranscriptQuery(meetingId, search), cancellationToken);
+
+        return result.IsSuccess ? TypedResults.Ok(result.Value) : result.ToProblem(context);
     }
 
     private static async Task<IResult> AddBookmarkAsync(

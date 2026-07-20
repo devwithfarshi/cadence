@@ -1,4 +1,5 @@
 using System.Text;
+using Cadence.Api.Realtime;
 using Cadence.Application.Common.Abstractions;
 using Cadence.Infrastructure.Configuration;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -53,6 +54,8 @@ internal static class AuthenticationConfiguration
 
                 options.MapInboundClaims = false;
 
+                // A websocket cannot carry an Authorization header, so SignalR sends the token in
+                // the query string. Accepted for hub paths only — see HubAuthentication.
                 options.Events = new JwtBearerEvents
                 {
                     OnChallenge = context =>
@@ -71,7 +74,7 @@ internal static class AuthenticationConfiguration
                             correlationId = context.HttpContext.TraceIdentifier,
                         });
                     },
-                };
+                }.WithHubQueryStringToken();
             });
 
         services.AddAuthorizationBuilder()
