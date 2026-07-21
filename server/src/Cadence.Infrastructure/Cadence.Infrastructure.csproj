@@ -4,6 +4,7 @@
 
   <ItemGroup>
     <PackageReference Include="Anthropic" />
+    <PackageReference Include="CloudinaryDotNet" />
     <PackageReference Include="EFCore.NamingConventions" />
     <PackageReference Include="Google.Apis.Auth" />
     <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" />

@@ -47,6 +47,16 @@ public sealed class AuthFixture : WebApplicationFactory<Program>, IAsyncLifetime
     /// </remarks>
     public FakeLlmProvider Llm { get; } = new();
 
+    /// <summary>
+    /// The file store, substituted at the port.
+    /// </summary>
+    /// <remarks>
+    /// The third and last fake, for the same reason as the other two: a port to a paid third party.
+    /// Everything below it — the signature handshake, the verification at registration, the indexing
+    /// job and the destroy-on-delete — is the production path.
+    /// </remarks>
+    public FakeFileStorage Files { get; } = new();
+
     // Implemented explicitly: xunit's IAsyncLifetime returns Task, while WebApplicationFactory
     // already defines a ValueTask-returning DisposeAsync. Without this the two collide.
     async Task IAsyncLifetime.InitializeAsync()
@@ -98,6 +108,9 @@ public sealed class AuthFixture : WebApplicationFactory<Program>, IAsyncLifetime
 
             services.RemoveAll<ILlmProvider>();
             services.AddSingleton<ILlmProvider>(Llm);
+
+            services.RemoveAll<IFileStorage>();
+            services.AddSingleton<IFileStorage>(Files);
         });
 
         return base.CreateHost(builder);

@@ -9,6 +9,7 @@ using Cadence.Infrastructure.Persistence;
 using Cadence.Infrastructure.Persistence.Interceptors;
 using Cadence.Infrastructure.Persistence.Repositories;
 using Cadence.Infrastructure.Services;
+using Cadence.Infrastructure.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -32,6 +33,7 @@ public static class DependencyInjection
         services.AddPersistence(configuration);
         services.AddAuthenticationServices(configuration);
         services.AddAiServices(configuration);
+        services.AddFileStorage(configuration);
         services.AddBackgroundJobs(configuration);
 
         services.AddSingleton<IDateTime, SystemDateTime>();
@@ -60,6 +62,26 @@ public static class DependencyInjection
         // Singleton: the SDK client is thread-safe and holds the connection pool, so one per process
         // is both correct and what keeps keep-alive working.
         services.AddSingleton<ILlmProvider, AnthropicLlmProvider>();
+    }
+
+    /// <summary>
+    /// Cloudinary behind <c>IFileStorage</c> (§12).
+    /// </summary>
+    /// <remarks>
+    /// The credential is not <c>ValidateOnStart</c>, for the same reason the AI key is not: running
+    /// the app to read meetings should not require an account with a file host. Without it the
+    /// document endpoints fail with a configuration error the moment they are called, which is a
+    /// smaller blast radius than a process that will not boot — and, unlike a silent no-op, it says
+    /// what is missing.
+    /// </remarks>
+    private static void AddFileStorage(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<CloudinaryOptions>()
+            .Bind(configuration.GetSection(CloudinaryOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        services.AddSingleton<IFileStorage, CloudinaryFileStorage>();
     }
 
     /// <summary>

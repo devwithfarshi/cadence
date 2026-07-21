@@ -6,6 +6,7 @@ using Cadence.Api.Common;
 using Cadence.Api.Jobs;
 using Cadence.Api.Realtime;
 using Cadence.Application.Common.Abstractions;
+using Cadence.Application.Modules.Documents;
 using Cadence.Application.Modules.Summaries;
 using Cadence.Application.Modules.Transcripts;
 using Cadence.Infrastructure.Persistence;
@@ -44,6 +45,8 @@ public static class DependencyInjection
         // The job body lives here because staging a principal for non-request work is this layer's
         // concern — see SummarizeMeetingJob.
         services.AddScoped<ISummarizeMeetingJob, SummarizeMeetingJob>();
+        services.AddScoped<IIndexDocumentJob, IndexDocumentJob>();
+        services.AddScoped<IPurgeDocumentAssetJob, PurgeDocumentAssetJob>();
 
         services.AddCadenceAuthentication(configuration);
         services.AddCadenceProblemDetails();

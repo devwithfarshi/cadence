@@ -50,4 +50,11 @@ public sealed record SignedUpload(
     string ApiKey,
     IReadOnlyDictionary<string, string> Parameters);
 
-public sealed record StoredFile(string StorageKey, string Url, long SizeBytes, string ContentType);
+/// <summary>An asset as the provider describes it, which is the only description worth trusting.</summary>
+/// <remarks>
+/// <c>Format</c> is the provider's own word for the file type — <c>pdf</c>, <c>docx</c> — rather than
+/// the MIME type the client declared when it asked for a signature. The two are deliberately
+/// different values from different sources: comparing them is how a client that lied about what it
+/// was uploading gets caught (§12.1).
+/// </remarks>
+public sealed record StoredFile(string StorageKey, string Url, long SizeBytes, string Format);
