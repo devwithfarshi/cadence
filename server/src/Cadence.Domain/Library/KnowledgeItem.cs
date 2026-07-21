@@ -96,7 +96,14 @@ public sealed class KnowledgeItem : AggregateRoot, ISoftDeletable, ITenantScoped
 
     public void ToggleFavorite() => IsFavorite = !IsFavorite;
 
-    public void MarkOpened() => LastOpenedAt = DateTimeOffset.UtcNow;
+    /// <summary>Records a visit, so the "recently opened" rail reflects real usage.</summary>
+    /// <remarks>
+    /// The time is supplied rather than read from the ambient clock, as <c>Invitation</c>'s rules
+    /// take theirs. It keeps the entity deterministic under test, and it keeps this
+    /// timestamp on the same clock as the auditing interceptor's — two "now"s from two sources on one
+    /// save is how a row ends up opened a millisecond before it was updated.
+    /// </remarks>
+    public void MarkOpened(DateTimeOffset openedAt) => LastOpenedAt = openedAt;
 
     public void ReplaceTags(IEnumerable<string> tags)
     {

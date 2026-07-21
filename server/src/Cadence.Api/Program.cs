@@ -101,6 +101,7 @@ try
     app.MapMeetingEndpoints();
     app.MapActionItemEndpoints();
     app.MapDocumentEndpoints();
+    app.MapKnowledgeEndpoints();
 
     // The live meeting channel. Mapped alongside the endpoints so the same authentication,
     // authorization and CORS pipeline above applies to the negotiate request.

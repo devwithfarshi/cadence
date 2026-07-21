@@ -86,9 +86,14 @@ public class LibraryTests
             "People",
             "Steps for a new hire's first week.");
 
+        var openedAt = new DateTimeOffset(2026, 3, 4, 9, 30, 0, TimeSpan.Zero);
+
         item.LastOpenedAt.ShouldBeNull();
-        item.MarkOpened();
-        item.LastOpenedAt.ShouldNotBeNull();
+        item.MarkOpened(openedAt);
+
+        // The exact value, not merely "not null": the caller supplies the time, so the entity has no
+        // licence to record a different one.
+        item.LastOpenedAt.ShouldBe(openedAt);
     }
 
     private static Document RegisterDocument(string storageKey = "cadence/docs/q3-forecast") =>
